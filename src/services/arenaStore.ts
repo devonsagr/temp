@@ -1,4 +1,4 @@
-import { HarnessConfig, BattleMatch, BattleTrialResult, ScoreBreakdown, RunHistoryRecord, TaskChannel, BenchmarkTask, CustomConstraint, WeightPreset, AIJudgeReport, BattleTrialStatus } from '../types/arena';
+import { HarnessConfig, BattleMatch, BattleTrialResult, ScoreBreakdown, RunHistoryRecord, TaskChannel, BenchmarkTask, CustomConstraint, WeightPreset, AIJudgeReport, BattleTrialStatus, MergeReadinessLevel, ManualRatingInput } from '../types/arena';
 import { BENCHMARK_TASKS, CHANNEL_FORMULAS } from './benchmarkSuites';
 
 export const AVAILABLE_MODELS = [
@@ -588,21 +588,21 @@ class ArenaStore {
     if (conf.specialFeatures?.autoSelfTest) codePass += 3;
     codePass = Math.min(100, Math.round(codePass));
 
-    // 2. Directness score (0 - 100)
+    // 2. Directness / Intent score (0 - 100)
     let directness = 88 + Math.random() * 10;
     if (isDirect) directness += 5;
     if (isHeavy) directness -= 18; // heavy wrappers penalize directness
-    if (task.difficulty === 'L3-专家') directness -= 6;
+    if (task.difficulty === 'Nightmare') directness -= 6;
     directness = Math.max(35, Math.min(100, Math.round(directness)));
 
-    // 3. Aesthetic / Interaction quality score (0 - 100)
+    // 3. Aesthetic / UX quality score (0 - 100)
     let aesthetic = 85 + Math.random() * 12;
     if (task.hasFrontendUI) {
       if (conf.skills.includes('quick-lint') || conf.skills.includes('type-safety')) aesthetic += 3;
     }
     aesthetic = Math.min(100, Math.max(40, Math.round(aesthetic)));
 
-    // 4. Constraint adherence score (0 - 100)
+    // 4. Constraint / Maintainability adherence score (0 - 100)
     let constraint = 88;
     if (conf.customConstraints && conf.customConstraints.length > 0) {
       const activeCount = conf.customConstraints.filter((c) => c.isActive).length;
@@ -612,18 +612,29 @@ class ArenaStore {
     if (isHeavy) constraint -= 14;
     constraint = Math.min(100, Math.max(30, Math.round(constraint)));
 
-    // Weighted overall calculation based on channel
-    let overall = 0;
-    if (channel === 'frontend-ui') {
-      overall = aesthetic * 0.35 + directness * 0.35 + codePass * 0.30;
-    } else if (channel === 'deepswe-core') {
-      overall = codePass * 0.50 + directness * 0.30 + constraint * 0.20;
-    } else if (channel === 'architecture-constraint') {
-      overall = constraint * 0.40 + directness * 0.30 + codePass * 0.30;
-    } else {
-      overall = codePass * 0.45 + directness * 0.35 + constraint * 0.20;
-    }
-    overall = Math.round(overall * 10) / 10;
+    // 5. Robustness / Edge defense score (0 - 100)
+    let robustness = Math.round(82 + Math.random() * 14);
+    if (isHeavy) robustness -= 8;
+    if (task.difficulty === 'Nightmare') robustness -= 10;
+    robustness = Math.min(100, Math.max(30, robustness));
+
+    // === 机械客观自动化判断分 (Mechanical Score - 50%) ===
+    const buildLint = Math.round(94 + Math.random() * 6);
+    const gitPurity = constraint;
+    const mechanicalScore = Math.round((codePass * 0.5 + buildLint * 0.25 + gitPurity * 0.25) * 10) / 10;
+
+    // === 人类专家 5 维复审分 (Human Expert Score - 50%) ===
+    const intentScore = directness;
+    const maintainabilityScore = constraint;
+    const robustnessScore = robustness;
+    const uxScore = aesthetic;
+    const humanScore = Math.round((intentScore * 0.3 + maintainabilityScore * 0.25 + robustnessScore * 0.25 + uxScore * 0.2) * 10) / 10;
+
+    const mergeReadiness: MergeReadinessLevel =
+      humanScore >= 90 ? 'ready_to_merge' : humanScore >= 80 ? 'minor_polish' : humanScore >= 60 ? 'major_rework' : 'rejected';
+
+    // 综合加权天梯总成绩 (50% 机械 + 50% 人类专家)
+    const overall = Math.round((mechanicalScore * 0.5 + humanScore * 0.5) * 10) / 10;
 
     const seconds = isHeavy ? Math.round(18 + Math.random() * 8) : Math.round(7 + Math.random() * 5);
     const turns = isStepByStep ? 2 : 1;
@@ -644,9 +655,21 @@ class ArenaStore {
 
     return {
       codePassScore: codePass,
+      buildLintScore: buildLint,
+      gitPurityScore: gitPurity,
+      mechanicalScore: mechanicalScore,
+
+      intentScore: intentScore,
+      maintainabilityScore: maintainabilityScore,
+      robustnessScore: robustnessScore,
+      uxScore: uxScore,
+      humanScore: humanScore,
+      mergeReadiness: mergeReadiness,
+
       directnessScore: directness,
       aestheticScore: aesthetic,
       constraintScore: constraint,
+
       overallPercent: overall,
       codexIQ: overall,
       varianceMargin: Math.round((2.0 + Math.random() * 1.5) * 10) / 10,
@@ -670,14 +693,7 @@ class ArenaStore {
     matchId: string,
     trialIndex: number,
     isConfigA: boolean,
-    rating: {
-      aestheticScore?: number;
-      directnessScore?: number;
-      aestheticStars?: number;
-      directnessStars?: number;
-      aestheticNotes?: string;
-      customChecks?: Record<string, boolean>;
-    }
+    rating: ManualRatingInput
   ) {
     // Check in matches
     const match = this.matches.find((m) => m.id === matchId);
@@ -703,55 +719,86 @@ class ArenaStore {
     this.persist();
   }
 
-  private applyRatingToTrial(trial: BattleTrialResult, rating: any, channel: TaskChannel) {
-    const finalAesthetic =
-      rating.aestheticScore != null
-        ? Math.max(0, Math.min(100, Math.round(rating.aestheticScore)))
-        : rating.aestheticStars != null
-        ? Math.min(100, Math.max(0, rating.aestheticStars * 20))
-        : trial.scores.aestheticScore;
+  private applyRatingToTrial(trial: BattleTrialResult, rating: ManualRatingInput, channel: TaskChannel) {
+    const scores = trial.scores;
+    const prev = trial.manualRatings;
 
-    const finalDirectness =
-      rating.directnessScore != null
+    // 1. Resolve 4 human dimensions
+    const intent =
+      rating.intentScore != null
+        ? Math.max(0, Math.min(100, Math.round(rating.intentScore)))
+        : rating.directnessScore != null
         ? Math.max(0, Math.min(100, Math.round(rating.directnessScore)))
-        : rating.directnessStars != null
-        ? Math.min(100, Math.max(0, rating.directnessStars * 20))
-        : trial.scores.directnessScore;
+        : scores.intentScore ?? scores.directnessScore ?? 85;
 
-    trial.scores.aestheticScore = finalAesthetic;
-    trial.scores.directnessScore = finalDirectness;
+    const maintainability =
+      rating.maintainabilityScore != null
+        ? Math.max(0, Math.min(100, Math.round(rating.maintainabilityScore)))
+        : scores.maintainabilityScore ?? scores.constraintScore ?? 88;
+
+    const robustness =
+      rating.robustnessScore != null
+        ? Math.max(0, Math.min(100, Math.round(rating.robustnessScore)))
+        : scores.robustnessScore ?? 85;
+
+    const ux =
+      rating.uxScore != null
+        ? Math.max(0, Math.min(100, Math.round(rating.uxScore)))
+        : rating.aestheticScore != null
+        ? Math.max(0, Math.min(100, Math.round(rating.aestheticScore)))
+        : scores.uxScore ?? scores.aestheticScore ?? 85;
+
+    // 2. Human total (30% + 25% + 25% + 20%)
+    const humanScore = Math.round((intent * 0.3 + maintainability * 0.25 + robustness * 0.25 + ux * 0.2) * 10) / 10;
+
+    // 3. PR readiness
+    const mergeReadiness: MergeReadinessLevel =
+      rating.mergeReadiness ||
+      (humanScore >= 90 ? 'ready_to_merge' : humanScore >= 80 ? 'minor_polish' : humanScore >= 60 ? 'major_rework' : 'rejected');
+
+    // 4. Mechanical score
+    const codePass = scores.codePassScore ?? 90;
+    const buildLint = scores.buildLintScore ?? 96;
+    const gitPurity = scores.gitPurityScore ?? 92;
+    const mechanicalScore = Math.round((codePass * 0.5 + buildLint * 0.25 + gitPurity * 0.25) * 10) / 10;
+
+    // 5. Synthesized Composite Overall Score (50% Mechanical + 50% Human)
+    const overall = Math.round((mechanicalScore * 0.5 + humanScore * 0.5) * 10) / 10;
+
+    // Apply back to scores
+    scores.codePassScore = codePass;
+    scores.buildLintScore = buildLint;
+    scores.gitPurityScore = gitPurity;
+    scores.mechanicalScore = mechanicalScore;
+
+    scores.intentScore = intent;
+    scores.maintainabilityScore = maintainability;
+    scores.robustnessScore = robustness;
+    scores.uxScore = ux;
+    scores.humanScore = humanScore;
+    scores.mergeReadiness = mergeReadiness;
+
+    // Legacy sync
+    scores.directnessScore = intent;
+    scores.aestheticScore = ux;
+    scores.constraintScore = maintainability;
+    scores.overallPercent = overall;
+    scores.codexIQ = overall;
 
     trial.manualRatings = {
-      aestheticScore: finalAesthetic,
-      directnessScore: finalDirectness,
-      aestheticStars: rating.aestheticStars ?? Math.round(finalAesthetic / 20),
-      directnessStars: rating.directnessStars ?? Math.round(finalDirectness / 20),
-      aestheticNotes: rating.aestheticNotes ?? trial.manualRatings?.aestheticNotes ?? '',
-      customChecks: rating.customChecks ?? trial.manualRatings?.customChecks ?? {},
+      intentScore: intent,
+      maintainabilityScore: maintainability,
+      robustnessScore: robustness,
+      uxScore: ux,
+      mergeReadiness: mergeReadiness,
+      aestheticScore: ux,
+      directnessScore: intent,
+      aestheticStars: Math.round(ux / 20),
+      directnessStars: Math.round(intent / 20),
+      aestheticNotes: rating.aestheticNotes ?? prev?.aestheticNotes ?? '',
+      customChecks: rating.customChecks ?? prev?.customChecks ?? {},
+      rubricScores: rating.rubricScores ?? prev?.rubricScores,
     };
-
-    if (rating.customChecks) {
-      let bonus = 0;
-      Object.values(rating.customChecks).forEach((checked) => {
-        if (checked) bonus += 5;
-        else bonus -= 5;
-      });
-      trial.scores.constraintScore = Math.min(100, Math.max(20, trial.scores.constraintScore + bonus));
-    }
-
-    const s = trial.scores;
-    let overall = 0;
-    if (channel === 'frontend-ui') {
-      overall = s.aestheticScore * 0.35 + s.directnessScore * 0.35 + s.codePassScore * 0.30;
-    } else if (channel === 'deepswe-core') {
-      overall = s.codePassScore * 0.50 + s.directnessScore * 0.30 + s.constraintScore * 0.20;
-    } else if (channel === 'architecture-constraint') {
-      overall = s.constraintScore * 0.40 + s.directnessScore * 0.30 + s.codePassScore * 0.30;
-    } else {
-      overall = s.codePassScore * 0.45 + s.directnessScore * 0.35 + s.constraintScore * 0.20;
-    }
-    trial.scores.overallPercent = Math.round(overall * 10) / 10;
-    trial.scores.codexIQ = trial.scores.overallPercent;
   }
 
   private generateSampleDiff(task: BenchmarkTask, conf: HarnessConfig): string {

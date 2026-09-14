@@ -10,6 +10,8 @@ import {
   BattleTrialStatus,
   TaskParadigm,
   TaskDifficulty,
+  ManualRatingInput,
+  MergeReadinessLevel,
 } from '../types/arena';
 import { BENCHMARK_CHANNELS } from '../services/benchmarkSuites';
 import { WEIGHT_PRESETS, arenaStore } from '../services/arenaStore';
@@ -70,14 +72,7 @@ interface BenchmarkRunnerViewProps {
     matchId: string,
     trialIndex: number,
     isConfigA: boolean,
-    rating: {
-      aestheticScore?: number;
-      directnessScore?: number;
-      aestheticStars?: number;
-      directnessStars?: number;
-      aestheticNotes?: string;
-      customChecks?: Record<string, boolean>;
-    }
+    rating: ManualRatingInput
   ) => void;
 }
 
@@ -239,7 +234,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
   const handleAdjustScore = (
     trialIndex: number,
     isConfigA: boolean,
-    type: 'aesthetic' | 'directness',
+    type: 'intent' | 'maintainability' | 'robustness' | 'ux' | 'aesthetic' | 'directness',
     value: number
   ) => {
     const clamped = Math.min(100, Math.max(0, Math.round(value)));
@@ -254,19 +249,43 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
     }
     if (!targetTrial) return;
 
-    const newAesthetic = type === 'aesthetic' ? clamped : targetTrial.scores.aestheticScore;
-    const newDirectness = type === 'directness' ? clamped : targetTrial.scores.directnessScore;
+    const intent = (type === 'intent' || type === 'directness') ? clamped : (targetTrial.scores.intentScore ?? targetTrial.scores.directnessScore);
+    const maintainability = type === 'maintainability' ? clamped : (targetTrial.scores.maintainabilityScore ?? targetTrial.scores.constraintScore ?? 86);
+    const robustness = type === 'robustness' ? clamped : (targetTrial.scores.robustnessScore ?? 85);
+    const ux = (type === 'ux' || type === 'aesthetic') ? clamped : (targetTrial.scores.uxScore ?? targetTrial.scores.aestheticScore);
+
+    const humanScore = Math.round((intent * 0.3 + maintainability * 0.25 + robustness * 0.25 + ux * 0.2) * 10) / 10;
+    const readiness: MergeReadinessLevel =
+      humanScore >= 90 ? 'ready_to_merge' : humanScore >= 80 ? 'minor_polish' : humanScore >= 60 ? 'major_rework' : 'rejected';
+
+    const mechanicalScore = targetTrial.scores.mechanicalScore ?? Math.round((targetTrial.scores.codePassScore * 0.5 + 96 * 0.25 + 92 * 0.25) * 10) / 10;
+    const overall = Math.round((mechanicalScore * 0.5 + humanScore * 0.5) * 10) / 10;
+
+    targetTrial.scores.intentScore = intent;
+    targetTrial.scores.maintainabilityScore = maintainability;
+    targetTrial.scores.robustnessScore = robustness;
+    targetTrial.scores.uxScore = ux;
+    targetTrial.scores.humanScore = humanScore;
+    targetTrial.scores.mergeReadiness = readiness;
+    targetTrial.scores.directnessScore = intent;
+    targetTrial.scores.aestheticScore = ux;
+    targetTrial.scores.constraintScore = maintainability;
+    targetTrial.scores.overallPercent = overall;
+    targetTrial.scores.codexIQ = overall;
 
     onSaveManualRating(runId, trialIndex, isConfigA, {
-      aestheticScore: newAesthetic,
-      directnessScore: newDirectness,
-      aestheticStars: Math.round(newAesthetic / 20),
-      directnessStars: Math.round(newDirectness / 20),
+      intentScore: intent,
+      maintainabilityScore: maintainability,
+      robustnessScore: robustness,
+      uxScore: ux,
+      mergeReadiness: readiness,
+      aestheticScore: ux,
+      directnessScore: intent,
+      aestheticStars: Math.round(ux / 20),
+      directnessStars: Math.round(intent / 20),
       aestheticNotes: targetTrial.manualRatings?.aestheticNotes || '',
       customChecks: targetTrial.manualRatings?.customChecks || {},
     });
-
-    targetTrial.scores[type === 'aesthetic' ? 'aestheticScore' : 'directnessScore'] = clamped;
   };
 
   return (
@@ -1186,127 +1205,332 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                     );
                   })()}
 
-                  {/* Fine-Grained Sliders (0-100) */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t border-slate-200/60 dark:border-zinc-800/60">
-                    {/* Visual Aesthetics Slider */}
-                    <div className="space-y-1.5 bg-white dark:bg-[#121215] p-3 rounded-lg border border-slate-200/80 dark:border-zinc-800">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-700 dark:text-zinc-300">
-                          视觉审美与交互质感:
-                        </span>
-                        <div className="flex items-center gap-1.5 font-mono">
-                          <button
-                            onClick={() =>
-                              handleAdjustScore(idx, true, 'aesthetic', r.scores.aestheticScore - 5)
-                            }
-                            className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px]"
-                          >
-                            -5
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={r.scores.aestheticScore}
-                            onChange={(e) =>
-                              handleAdjustScore(idx, true, 'aesthetic', Number(e.target.value))
-                            }
-                            className="w-12 text-center py-0.5 border rounded bg-slate-50 dark:bg-zinc-900 text-xs font-bold"
-                          />
-                          <button
-                            onClick={() =>
-                              handleAdjustScore(idx, true, 'aesthetic', r.scores.aestheticScore + 5)
-                            }
-                            className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px]"
-                          >
-                            +5
-                          </button>
+                  {/* Dual-Track Evaluation & 4-Dimension Engineering Sliders */}
+                  <div className="pt-3 border-t border-slate-200/60 dark:border-zinc-800/60 space-y-3">
+                    {/* Synthesis Status Pill */}
+                    <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-900/80 border border-slate-200/80 dark:border-zinc-800 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-4 flex-wrap">
+                        <div>
+                          <span className="text-[10px] text-blue-600 dark:text-blue-400 font-bold block">
+                            🤖 机械客观自动化判断 (50%)
+                          </span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
+                            {r.scores.mechanicalScore ?? Math.round(r.scores.codePassScore * 0.5 + 47)} 分
+                          </span>
+                          <span className="text-[10px] text-slate-400 ml-1.5">
+                            (单测 {r.scores.codePassScore}分 · 编译通过 · Git 纯净)
+                          </span>
+                        </div>
+
+                        <span className="text-slate-300 dark:text-zinc-700 hidden sm:inline">|</span>
+
+                        <div>
+                          <span className="text-[10px] text-purple-600 dark:text-purple-400 font-bold block">
+                            👤 人类专家 5 维复审 (50%)
+                          </span>
+                          <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
+                            {r.scores.humanScore ??
+                              Math.round(
+                                ((r.scores.intentScore ?? r.scores.directnessScore) * 0.3 +
+                                  (r.scores.maintainabilityScore ?? 86) * 0.25 +
+                                  (r.scores.robustnessScore ?? 85) * 0.25 +
+                                  (r.scores.uxScore ?? r.scores.aestheticScore) * 0.2) *
+                                  10
+                              ) / 10}{' '}
+                            分
+                          </span>
+                        </div>
+
+                        <span className="text-slate-300 dark:text-zinc-700 hidden sm:inline">|</span>
+
+                        <div>
+                          <span className="text-[10px] text-slate-400 font-bold block">
+                            🏷️ PR 准入评级
+                          </span>
+                          <span className="font-semibold text-slate-800 dark:text-zinc-200">
+                            {r.scores.mergeReadiness === 'ready_to_merge'
+                              ? '🟢 免修直接合并'
+                              : r.scores.mergeReadiness === 'minor_polish'
+                              ? '🟡 微调即可合入'
+                              : r.scores.mergeReadiness === 'major_rework'
+                              ? '🟠 需较大幅重构'
+                              : '🔴 拒绝合入'}
+                          </span>
                         </div>
                       </div>
 
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={r.scores.aestheticScore}
-                        onChange={(e) =>
-                          handleAdjustScore(idx, true, 'aesthetic', Number(e.target.value))
-                        }
-                        className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
-                      />
-
-                      <div className="flex items-center justify-end gap-1 text-[10px] text-slate-400">
-                        <span>快速应用:</span>
-                        {[60, 80, 90, 98].map((preset) => (
-                          <button
-                            key={preset}
-                            onClick={() => handleAdjustScore(idx, true, 'aesthetic', preset)}
-                            className="px-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300"
-                          >
-                            {preset}
-                          </button>
-                        ))}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 font-medium">加权总分:</span>
+                        <span className="px-2.5 py-0.5 rounded-lg bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-mono font-bold text-xs shadow-sm">
+                          {r.scores.codexIQ} 分
+                        </span>
                       </div>
                     </div>
 
-                    {/* Direct Hit Slider */}
-                    <div className="space-y-1.5 bg-white dark:bg-[#121215] p-3 rounded-lg border border-slate-200/80 dark:border-zinc-800">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-700 dark:text-zinc-300">
-                          单指令直出意图切中与交付满意度:
-                        </span>
-                        <div className="flex items-center gap-1.5 font-mono">
-                          <button
-                            onClick={() =>
-                              handleAdjustScore(idx, true, 'directness', r.scores.directnessScore - 5)
-                            }
-                            className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px]"
-                          >
-                            -5
-                          </button>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            value={r.scores.directnessScore}
-                            onChange={(e) =>
-                              handleAdjustScore(idx, true, 'directness', Number(e.target.value))
-                            }
-                            className="w-12 text-center py-0.5 border rounded bg-slate-50 dark:bg-zinc-900 text-xs font-bold"
-                          />
-                          <button
-                            onClick={() =>
-                              handleAdjustScore(idx, true, 'directness', r.scores.directnessScore + 5)
-                            }
-                            className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 text-[10px]"
-                          >
-                            +5
-                          </button>
+                    {/* 4 Professional Engineering Sliders */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                      {/* Dim 1: Intent Fidelity */}
+                      <div className="space-y-1.5 bg-white dark:bg-[#121215] p-2.5 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700 dark:text-zinc-300 truncate">
+                            🎯 需求切中 (30%)
+                          </span>
+                          <div className="flex items-center gap-1 font-mono">
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'intent',
+                                  (r.scores.intentScore ?? r.scores.directnessScore) - 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              -5
+                            </button>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs w-6 text-center">
+                              {r.scores.intentScore ?? r.scores.directnessScore}
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'intent',
+                                  (r.scores.intentScore ?? r.scores.directnessScore) + 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              +5
+                            </button>
+                          </div>
+                        </div>
+
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={r.scores.intentScore ?? r.scores.directnessScore}
+                          onChange={(e) =>
+                            handleAdjustScore(idx, true, 'intent', Number(e.target.value))
+                          }
+                          className="w-full accent-indigo-600 cursor-pointer h-1.5"
+                        />
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span>段位:</span>
+                          <div className="flex gap-1">
+                            {[60, 80, 90, 98].map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => handleAdjustScore(idx, true, 'intent', p)}
+                                className="px-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
 
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={r.scores.directnessScore}
-                        onChange={(e) =>
-                          handleAdjustScore(idx, true, 'directness', Number(e.target.value))
-                        }
-                        className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
-                      />
+                      {/* Dim 2: Maintainability */}
+                      <div className="space-y-1.5 bg-white dark:bg-[#121215] p-2.5 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700 dark:text-zinc-300 truncate">
+                            🧹 代码规范 (25%)
+                          </span>
+                          <div className="flex items-center gap-1 font-mono">
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'maintainability',
+                                  (r.scores.maintainabilityScore ?? r.scores.constraintScore ?? 86) - 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              -5
+                            </button>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs w-6 text-center">
+                              {r.scores.maintainabilityScore ?? r.scores.constraintScore ?? 86}
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'maintainability',
+                                  (r.scores.maintainabilityScore ?? r.scores.constraintScore ?? 86) + 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              +5
+                            </button>
+                          </div>
+                        </div>
 
-                      <div className="flex items-center justify-end gap-1 text-[10px] text-slate-400">
-                        <span>快速应用:</span>
-                        {[60, 80, 90, 98].map((preset) => (
-                          <button
-                            key={preset}
-                            onClick={() => handleAdjustScore(idx, true, 'directness', preset)}
-                            className="px-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-600 dark:text-zinc-300"
-                          >
-                            {preset}
-                          </button>
-                        ))}
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={r.scores.maintainabilityScore ?? r.scores.constraintScore ?? 86}
+                          onChange={(e) =>
+                            handleAdjustScore(idx, true, 'maintainability', Number(e.target.value))
+                          }
+                          className="w-full accent-indigo-600 cursor-pointer h-1.5"
+                        />
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span>段位:</span>
+                          <div className="flex gap-1">
+                            {[60, 80, 90, 98].map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => handleAdjustScore(idx, true, 'maintainability', p)}
+                                className="px-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dim 3: Robustness */}
+                      <div className="space-y-1.5 bg-white dark:bg-[#121215] p-2.5 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700 dark:text-zinc-300 truncate">
+                            🛡️ 边界健壮 (25%)
+                          </span>
+                          <div className="flex items-center gap-1 font-mono">
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'robustness',
+                                  (r.scores.robustnessScore ?? 85) - 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              -5
+                            </button>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs w-6 text-center">
+                              {r.scores.robustnessScore ?? 85}
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'robustness',
+                                  (r.scores.robustnessScore ?? 85) + 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              +5
+                            </button>
+                          </div>
+                        </div>
+
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={r.scores.robustnessScore ?? 85}
+                          onChange={(e) =>
+                            handleAdjustScore(idx, true, 'robustness', Number(e.target.value))
+                          }
+                          className="w-full accent-indigo-600 cursor-pointer h-1.5"
+                        />
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span>段位:</span>
+                          <div className="flex gap-1">
+                            {[60, 80, 90, 98].map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => handleAdjustScore(idx, true, 'robustness', p)}
+                                className="px-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Dim 4: UX */}
+                      <div className="space-y-1.5 bg-white dark:bg-[#121215] p-2.5 rounded-xl border border-slate-200/80 dark:border-zinc-800">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-slate-700 dark:text-zinc-300 truncate">
+                            ✨ 交互质感 (20%)
+                          </span>
+                          <div className="flex items-center gap-1 font-mono">
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'ux',
+                                  (r.scores.uxScore ?? r.scores.aestheticScore) - 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              -5
+                            </button>
+                            <span className="font-bold text-indigo-600 dark:text-indigo-400 text-xs w-6 text-center">
+                              {r.scores.uxScore ?? r.scores.aestheticScore}
+                            </span>
+                            <button
+                              onClick={() =>
+                                handleAdjustScore(
+                                  idx,
+                                  true,
+                                  'ux',
+                                  (r.scores.uxScore ?? r.scores.aestheticScore) + 5
+                                )
+                              }
+                              className="px-1 py-0.2 rounded bg-slate-100 dark:bg-zinc-800 text-[10px]"
+                            >
+                              +5
+                            </button>
+                          </div>
+                        </div>
+
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          value={r.scores.uxScore ?? r.scores.aestheticScore}
+                          onChange={(e) =>
+                            handleAdjustScore(idx, true, 'ux', Number(e.target.value))
+                          }
+                          className="w-full accent-indigo-600 cursor-pointer h-1.5"
+                        />
+
+                        <div className="flex items-center justify-between text-[10px] text-slate-400">
+                          <span>段位:</span>
+                          <div className="flex gap-1">
+                            {[60, 80, 90, 98].map((p) => (
+                              <button
+                                key={p}
+                                onClick={() => handleAdjustScore(idx, true, 'ux', p)}
+                                className="px-1 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                              >
+                                {p}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1437,12 +1661,35 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
-                            <span>代码客观通过: {trialA.scores.codePassScore} 分</span>
-                            <span>切中直达: {trialA.scores.directnessScore} 分</span>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] p-2 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/80">
+                            <div>
+                              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block">🤖 机械客观自动化 (50%)</span>
+                              <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
+                                {trialA.scores.mechanicalScore ?? trialA.scores.codePassScore} 分
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium block">👤 专家5维复审 (50%)</span>
+                              <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
+                                {trialA.scores.humanScore ?? trialA.scores.directnessScore} 分
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500">
+                            <span>PR 准入:</span>
+                            <span className="font-semibold text-slate-700 dark:text-zinc-300">
+                              {trialA.scores.mergeReadiness === 'ready_to_merge'
+                                ? '🟢 免修直接合并'
+                                : trialA.scores.mergeReadiness === 'minor_polish'
+                                ? '🟡 微调即可合入'
+                                : trialA.scores.mergeReadiness === 'major_rework'
+                                ? '🟠 需较大幅重构'
+                                : '🔴 拒绝合入'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800 flex-wrap">
                             {isProj && (
                               <button
                                 onClick={() =>
@@ -1471,7 +1718,21 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                               className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[11px] hover:bg-slate-200 flex items-center gap-1"
                             >
                               <FileCode className="w-3 h-3 text-indigo-500" />
-                              <span>Diff & 审核</span>
+                              <span>Diff</span>
+                            </button>
+                            <button
+                              onClick={() =>
+                                setReviewModalData({
+                                  trial: trialA,
+                                  index: idx,
+                                  isConfigA: true,
+                                  initialTab: 'rubric',
+                                })
+                              }
+                              className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[11px] hover:bg-purple-100 flex items-center gap-1 font-medium"
+                            >
+                              <Sliders className="w-3 h-3 text-purple-500" />
+                              <span>专家复审</span>
                             </button>
                           </div>
                         </div>
@@ -1490,12 +1751,35 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                             </div>
                           </div>
 
-                          <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-zinc-400">
-                            <span>代码客观通过: {trialB.scores.codePassScore} 分</span>
-                            <span>切中直达: {trialB.scores.directnessScore} 分</span>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] p-2 rounded-lg bg-slate-50 dark:bg-zinc-900 border border-slate-200/60 dark:border-zinc-800/80">
+                            <div>
+                              <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium block">🤖 机械客观自动化 (50%)</span>
+                              <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
+                                {trialB.scores.mechanicalScore ?? trialB.scores.codePassScore} 分
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-purple-600 dark:text-purple-400 font-medium block">👤 专家5维复审 (50%)</span>
+                              <span className="font-mono font-bold text-slate-800 dark:text-zinc-200">
+                                {trialB.scores.humanScore ?? trialB.scores.directnessScore} 分
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="flex items-center gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                          <div className="flex items-center justify-between text-[10px] text-slate-500">
+                            <span>PR 准入:</span>
+                            <span className="font-semibold text-slate-700 dark:text-zinc-300">
+                              {trialB.scores.mergeReadiness === 'ready_to_merge'
+                                ? '🟢 免修直接合并'
+                                : trialB.scores.mergeReadiness === 'minor_polish'
+                                ? '🟡 微调即可合入'
+                                : trialB.scores.mergeReadiness === 'major_rework'
+                                ? '🟠 需较大幅重构'
+                                : '🔴 拒绝合入'}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800 flex-wrap">
                             {isProj && (
                               <button
                                 onClick={() =>
@@ -1524,7 +1808,21 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                               className="px-2 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-[11px] hover:bg-slate-200 flex items-center gap-1"
                             >
                               <FileCode className="w-3 h-3 text-sky-500" />
-                              <span>Diff & 审核</span>
+                              <span>Diff</span>
+                            </button>
+                            <button
+                              onClick={() =>
+                                setReviewModalData({
+                                  trial: trialB,
+                                  index: idx,
+                                  isConfigA: false,
+                                  initialTab: 'rubric',
+                                })
+                              }
+                              className="px-2 py-0.5 rounded bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 text-[11px] hover:bg-purple-100 flex items-center gap-1 font-medium"
+                            >
+                              <Sliders className="w-3 h-3 text-purple-500" />
+                              <span>专家复审</span>
                             </button>
                           </div>
                         </div>

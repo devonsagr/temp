@@ -7,7 +7,7 @@ import { ScoringGuideView } from './views/ScoringGuideView';
 import { RunHistoryView } from './views/RunHistoryView';
 import { TaskBankView } from './views/TaskBankView';
 import { arenaStore } from './services/arenaStore';
-import { HarnessConfig, BattleMatch, TaskChannel, RunHistoryRecord, BenchmarkTask } from './types/arena';
+import { HarnessConfig, BattleMatch, TaskChannel, RunHistoryRecord, BenchmarkTask, ManualRatingInput } from './types/arena';
 
 // Robust Error Boundary to guarantee screen is NEVER pure black
 class ErrorBoundary extends Component<{ children: ReactNode }, { hasError: boolean; error: string }> {
@@ -133,14 +133,7 @@ export const App: React.FC = () => {
     matchId: string,
     trialIndex: number,
     isConfigA: boolean,
-    rating: {
-      aestheticScore?: number;
-      directnessScore?: number;
-      aestheticStars?: number;
-      directnessStars?: number;
-      aestheticNotes?: string;
-      customChecks?: Record<string, boolean>;
-    }
+    rating: ManualRatingInput
   ) => {
     arenaStore.updateManualRating(matchId, trialIndex, isConfigA, rating);
     refreshData();

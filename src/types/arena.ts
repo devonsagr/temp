@@ -92,12 +92,30 @@ export interface TokensDetail {
   cacheHitRate: number;        // 提示词缓存命中率 (例如 82.5%)
 }
 
+export type MergeReadinessLevel = 'ready_to_merge' | 'minor_polish' | 'major_rework' | 'rejected';
+
 export interface ScoreBreakdown {
-  codePassScore: number;       // 0-100 客观自动化代码通过率
-  directnessScore: number;     // 0-100 直击效率分（轮数少、耗时短、直达核心）
-  aestheticScore: number;      // 0-100 前端交互与视觉手感分（支持手动或视觉评估）
-  constraintScore: number;     // 0-100 约束遵从分（如未改动无关代码、遵循团队私有约束）
-  overallPercent: number;      // 0-100% 加权综合得分
+  // === 机械客观自动化判断部分 (Machine Objective Automated Engine) ===
+  codePassScore: number;       // 0-100 客观自动化单测与断言通过率 (Exit Code 0)
+  buildLintScore?: number;     // 0-100 静态编译与类型检查通过率 (TypeScript 0 Error / Linter)
+  gitPurityScore?: number;     // 0-100 Git 物理变更纯净度 (无多余依赖/文件、预算遵从)
+  mechanicalScore?: number;    // 0-100 机械综合总分 (加权上述三项)
+
+  // === 人类专家 5 维工业级复审量表 (Human Expert Review Matrix) ===
+  intentScore?: number;        // 0-100 需求理解与要害切中度 (Intent Fidelity & Completeness)
+  maintainabilityScore?: number;// 0-100 代码规范与可维护性 (Code Cleanliness & Idioms)
+  robustnessScore?: number;    // 0-100 异常边界与防御健壮度 (Defensive Robustness & Edge Handling)
+  uxScore?: number;            // 0-100 交互可用性与视觉手感 (UI/UX Ergonomics & Usability)
+  humanScore?: number;         // 0-100 人类专家复核综合得分 (加权上述四项)
+  mergeReadiness?: MergeReadinessLevel; // PR 准入状态与交付等级
+
+  // 兼容老接口字段
+  directnessScore: number;     // 0-100 直击效率分（映射至 intentScore）
+  aestheticScore: number;      // 0-100 视觉手感分（映射至 uxScore）
+  constraintScore: number;     // 0-100 约束遵从分（映射至 maintainabilityScore / gitPurity）
+
+  // 综合天梯分
+  overallPercent: number;      // 0-100% 机械 + 人工加权综合得分
   codexIQ: number;             // 0-100 综合基准得分
   varianceMargin: number;      // 采样方差误差范围 (例如 ±3.2 分)
   turnsUsed: number;
@@ -109,12 +127,35 @@ export interface ScoreBreakdown {
   tokensDetail?: TokensDetail;
 }
 
+export interface ManualRatingInput {
+  intentScore?: number;
+  maintainabilityScore?: number;
+  robustnessScore?: number;
+  uxScore?: number;
+  mergeReadiness?: MergeReadinessLevel;
+  aestheticScore?: number;
+  directnessScore?: number;
+  aestheticStars?: number;
+  directnessStars?: number;
+  aestheticNotes?: string;
+  customChecks?: Record<string, boolean>;
+  rubricScores?: Record<string, number>;
+}
+
 export interface ManualRatingData {
-  aestheticScore?: number;   // 0-100 精细打分 (连续数值)
-  directnessScore?: number;  // 0-100 精细打分 (连续数值)
-  aestheticStars?: number;   // 1-5 星 (辅助展示)
-  directnessStars?: number;  // 1-5 星 (辅助展示)
-  aestheticNotes: string;    // 手动评测备注文档
+  // 人类专家 5 维公允量表
+  intentScore?: number;        // 0-100 需求理解与切中要害
+  maintainabilityScore?: number;// 0-100 代码规范与可维护性
+  robustnessScore?: number;    // 0-100 异常边界与防御健壮
+  uxScore?: number;            // 0-100 交互可用与视觉质感
+  mergeReadiness?: MergeReadinessLevel; // PR 准入评级
+
+  // 兼容向下字段
+  aestheticScore?: number;     // 0-100 精细打分
+  directnessScore?: number;    // 0-100 精细打分
+  aestheticStars?: number;     // 1-5 星
+  directnessStars?: number;    // 1-5 星
+  aestheticNotes: string;      // 手动评测备注文档
   customChecks: Record<string, boolean>; // 个性化架构与约束核验
   rubricScores?: Record<string, number>; // 逐项细则打分
 }

@@ -36,6 +36,46 @@ export const ScoringGuideView: React.FC = () => {
 取材于真实 GitHub 生产仓库历史缺陷与现代 Web 交互挑战，并开放了【题库中心】JSON 格式自由导入机制，团队可随时挂载私有业务代码库。`,
     },
     {
+      id: 'dual-track-matrix',
+      title: '② 人工复审指标为什么不能只有两个？机械客观判断 vs 人类专家复审的边界与权重是如何划分的？',
+      tag: '双轨评价体系与5维量表',
+      icon: UserCheck,
+      color: 'text-blue-500 bg-blue-50 dark:bg-blue-950/50',
+      content: `【告别单薄的两个人工滑块：构建国际工业级双轨评价体系与 5 维专家量表】：
+
+一、为什么只测“直达度”和“要求率”严重失真、无法服众？
+如果人工只看直达和要求，任何写死硬编码、写一堆 any 逃避类型检查、没有任何异常处理甚至存在内存泄漏的代码，只要表面上把功能点堆上去了，就能拿到虚假的满分！
+参考 LMSYS Coding Arena、SWE-bench 与一线科技大厂 GitHub PR 准入规范，真实的软件工程评价必须将“客观机器验收”与“公允人类复审”明确分轨，各司其职。
+
+二、第一轨：机械客观自动化判断 (Machine Objective Engine - 权重大盘 50%)
+具备 0 人工偏见、100% 确定性、无头沙箱毫秒级自动化重现：
+1. 测试用例全量断言 (Pass Rate & Exit Code 0, 50% 机械分)：
+   - 包含单元测试、Playwright E2E 无头端到端用例，进程退出码非 0 即失败；
+2. 静态工程编译与类型安全 (TypeScript 0 Error / ESLint 规范, 25% 机械分)：
+   - 执行 tsc --noEmit 与代码静态扫描，杜绝隐式 any、未捕获 Promise 与死循环；
+3. Git 物理变更纯净度 (Git Diff & Budget, 25% 机械分)：
+   - 审计文件变更数量、改动行数与目录树污染，严禁 AI 擅自创建 demo 垃圾文件；
+4. 运行时能效遥测 (Telemetry)：
+   - 真实时延、Token 吞吐量、Thinking 推理 Token 与 Prompt 缓存命中率。
+
+三、第二轨：人类专家 5 维工程复审量表 (Human Expert Review Matrix - 权重大盘 50%)
+针对机器单测无法完全覆盖的架构自洽性、代码品味与生产可用性，由资深工程师按 0~100 连续数值裁决：
+1. 🎯 需求切中与意图理解 (Intent Fidelity & Completeness, 30% 人工分)：
+   - 是否洞察用户的真实隐式诉求？核心路径是否一步到位？有无功能减配与阳奉阴违；
+2. 🧹 代码规范与工程纯净度 (Code Cleanliness & Maintainability, 25% 人工分)：
+   - 命名是否符合规范？有无反直觉的过度分层抽象？状态管理与模块解耦是否清晰；
+3. 🛡️ 边界防御与异常健壮度 (Defensive Robustness & Error Handling, 25% 人工分)：
+   - 空值与极端输入保护、网络异常重试、竞态请求防抖、长列表性能降级与内存泄露防御；
+4. 🎨 交互可用性与视觉质感 (UI/UX Ergonomics & Usability, 20% 人工分)：
+   - 页面布局呼吸感、暗黑模式适配度、交互反馈（Loading/Skeleton/Toast）、键盘快捷键友好度；
+5. 🏷️ PR 准入评级 (Merge Readiness Level, 准入决策)：
+   - 🟢 免修直接合并 (Ready to Merge) / 🟡 微调即可合入 (Minor Polish) / 🟠 需较大幅重构 (Major Rework) / 🔴 拒绝合入 (Rejected)。
+
+四、综合天梯分合成公式 (Codex IQ Synthesis)：
+天梯基准总成绩 (Codex IQ) = 机械客观得分 × 50% + 人类专家复审得分 × 50%
+在【单题评测战报】与【A/B 对照矩阵】中，系统均同时呈现机械客观分与专家复审分，支持点击【专家复审】随时核准滑块并实时重新加权！`,
+    },
+    {
       id: 'paradigm-decoupling',
       title: '③ 解决 Bug vs 做项目两大赛道：为什么说“做项目”才是主力，而“修Bug”只是一小部分？做项目的题目和要求究竟怎么设置？',
       tag: '主力赛道解耦与Spec协议',

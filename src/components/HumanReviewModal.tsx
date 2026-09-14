@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { BattleTrialResult, BenchmarkTask } from '../types/arena';
 import { IQBadge } from './IQBadge';
 import {
   FileCode,
@@ -24,6 +23,8 @@ import {
   Cpu,
 } from 'lucide-react';
 
+import { BattleTrialResult, BenchmarkTask, ManualRatingInput, MergeReadinessLevel } from '../types/arena';
+
 interface HumanReviewModalProps {
   trial: BattleTrialResult;
   trialIndex: number;
@@ -34,12 +35,7 @@ interface HumanReviewModalProps {
   onSaveRating: (
     trialIndex: number,
     isConfigA: boolean,
-    rating: {
-      aestheticScore?: number;
-      directnessScore?: number;
-      aestheticNotes?: string;
-      customChecks?: Record<string, boolean>;
-    }
+    rating: ManualRatingInput
   ) => void;
 }
 
@@ -62,12 +58,23 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
     initialTab || (isProjectTask ? 'spec' : 'diff')
   );
 
-  const [aesthetic, setAesthetic] = useState(
-    trial.manualRatings?.aestheticScore ?? trial.scores.aestheticScore
+  // 4 Human Dimensions + PR readiness
+  const [intent, setIntent] = useState<number>(
+    trial.manualRatings?.intentScore ?? trial.scores.intentScore ?? trial.manualRatings?.directnessScore ?? trial.scores.directnessScore ?? 88
   );
-  const [directness, setDirectness] = useState(
-    trial.manualRatings?.directnessScore ?? trial.scores.directnessScore
+  const [maintainability, setMaintainability] = useState<number>(
+    trial.manualRatings?.maintainabilityScore ?? trial.scores.maintainabilityScore ?? trial.scores.constraintScore ?? 86
   );
+  const [robustness, setRobustness] = useState<number>(
+    trial.manualRatings?.robustnessScore ?? trial.scores.robustnessScore ?? 84
+  );
+  const [ux, setUX] = useState<number>(
+    trial.manualRatings?.uxScore ?? trial.scores.uxScore ?? trial.manualRatings?.aestheticScore ?? trial.scores.aestheticScore ?? 88
+  );
+  const [readiness, setReadiness] = useState<MergeReadinessLevel>(
+    trial.manualRatings?.mergeReadiness ?? trial.scores.mergeReadiness ?? 'minor_polish'
+  );
+
   const [notes, setNotes] = useState(trial.manualRatings?.aestheticNotes || '');
   const [checks, setChecks] = useState<Record<string, boolean>>(
     trial.manualRatings?.customChecks || {
@@ -76,6 +83,11 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
       smooth_interaction: true,
     }
   );
+
+  // Dynamic calculations
+  const currentHumanScore = Math.round((intent * 0.3 + maintainability * 0.25 + robustness * 0.25 + ux * 0.2) * 10) / 10;
+  const currentMechanicalScore = trial.scores.mechanicalScore ?? Math.round((trial.scores.codePassScore * 0.5 + 96 * 0.25 + 92 * 0.25) * 10) / 10;
+  const currentCompositeScore = Math.round((currentMechanicalScore * 0.5 + currentHumanScore * 0.5) * 10) / 10;
 
   // User stories verification state
   const defaultStories = task?.projectSpec?.userStories || [
@@ -97,7 +109,7 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
   // 3-Layer Acceptance Scorecard
   const [layer1Score, setLayer1Score] = useState(96); // E2E 自动化 40%
   const [layer2Score, setLayer2Score] = useState(92); // AI 裁判契约 30%
-  const [layer3Score, setLayer3Score] = useState(trial.manualRatings?.aestheticScore ?? trial.scores.aestheticScore); // 人工可用性与质感 30%
+  const [layer3Score, setLayer3Score] = useState(ux); // 人工可用性与质感 30%
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
   const calculatedSpecScore = Math.round(layer1Score * 0.4 + layer2Score * 0.3 + layer3Score * 0.3);
@@ -107,15 +119,17 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
   };
 
   const handleApplySpecScores = () => {
-    setAesthetic(layer3Score);
-    setDirectness(layer1Score);
+    setUX(layer3Score);
+    setIntent(layer1Score);
+    setMaintainability(layer2Score);
+    setRobustness(Math.round((layer1Score + layer2Score) / 2));
     setChecks((prev) => ({
       ...prev,
       no_extra_files: layer2Score >= 85,
       surgical_edits: layer2Score >= 80,
       smooth_interaction: layer3Score >= 85,
     }));
-    setSyncFeedback('✓ 已将 3 层 Spec 立体验收得分同步至人工复核分与考核项！');
+    setSyncFeedback('✓ 已将 3 层 Spec 立体验收得分同步至 5 维工业级专家复核体系！');
     setTimeout(() => setSyncFeedback(null), 3000);
   };
 
@@ -133,8 +147,13 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
 
   const handleSave = () => {
     onSaveRating(trialIndex, isConfigA, {
-      aestheticScore: aesthetic,
-      directnessScore: directness,
+      intentScore: intent,
+      maintainabilityScore: maintainability,
+      robustnessScore: robustness,
+      uxScore: ux,
+      mergeReadiness: readiness,
+      aestheticScore: ux,
+      directnessScore: intent,
       aestheticNotes: notes,
       customChecks: checks,
     });
@@ -878,57 +897,242 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
           {/* Tab 5: Human Review & Rubric Checklist */}
           {activeTab === 'rubric' && (
             <div className="space-y-5">
-              {/* Sliders */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 dark:text-zinc-200">视觉审美与交互质感:</span>
-                    <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">{aesthetic} 分</span>
+              {/* Dual-Track Real-time Score Preview Banner */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-50/80 via-purple-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:via-purple-950/30 dark:to-indigo-950/30 border border-indigo-200/80 dark:border-indigo-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+                    IQ
                   </div>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={aesthetic}
-                    onChange={(e) => setAesthetic(Number(e.target.value))}
-                    className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
-                  />
-                  <div className="flex justify-end gap-1 text-[10px] text-slate-400">
-                    {[60, 80, 90, 98].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setAesthetic(p)}
-                        className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800"
-                      >
-                        {p}
-                      </button>
-                    ))}
+                  <div>
+                    <div className="font-bold text-xs text-slate-900 dark:text-white">
+                      双轨科学加权最新天梯合成成绩
+                    </div>
+                    <div className="text-[11px] text-slate-500 dark:text-zinc-400 font-mono">
+                      机械客观分 50% + 人类专家分 50%
+                    </div>
                   </div>
                 </div>
 
+                <div className="flex items-center gap-3 font-mono text-xs">
+                  <div className="text-right">
+                    <div className="text-[10px] text-blue-600 dark:text-blue-400 font-bold">机械客观分</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">{currentMechanicalScore}</div>
+                  </div>
+                  <span className="text-slate-300 dark:text-zinc-700 font-normal">+</span>
+                  <div className="text-right">
+                    <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold">人类专家分</div>
+                    <div className="text-sm font-bold text-slate-900 dark:text-white">{currentHumanScore}</div>
+                  </div>
+                  <span className="text-slate-300 dark:text-zinc-700 font-normal">=</span>
+                  <div className="px-3 py-1 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 text-base font-bold shadow-sm">
+                    {currentCompositeScore} 分
+                  </div>
+                </div>
+              </div>
+
+              {/* 1. PR Merge-Ready Delivery Rating */}
+              <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-xs text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-indigo-500" />
+                    <span>1. PR 准入与交付就绪评级 (Merge-Ready Hand-off Level)</span>
+                  </label>
+                  <span className="text-[11px] text-slate-400 font-mono">决定能否直接上线</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  {[
+                    {
+                      id: 'ready_to_merge' as const,
+                      badge: '🟢 免修直接合并',
+                      tag: 'Production-Ready',
+                      desc: '达到资深工程师标准，意图精准，边界完备，无需人肉返工',
+                    },
+                    {
+                      id: 'minor_polish' as const,
+                      badge: '🟡 微调即可合入',
+                      tag: 'Minor Polish',
+                      desc: '核心链路全通，仅需微调个别文案、间距或小样式 (< 5分钟)',
+                    },
+                    {
+                      id: 'major_rework' as const,
+                      badge: '🟠 需较大幅重构',
+                      tag: 'Heavy Rework',
+                      desc: '逻辑勉强跑通，但代码生硬难维护，需人类花费 20+ 分钟重构',
+                    },
+                    {
+                      id: 'rejected' as const,
+                      badge: '🔴 拒绝合入',
+                      tag: 'Rejected',
+                      desc: '存在严重逻辑缺陷、破坏既有架构或假功能，直接驳回',
+                    },
+                  ].map((level) => {
+                    const active = readiness === level.id;
+                    return (
+                      <div
+                        key={level.id}
+                        onClick={() => setReadiness(level.id)}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all flex flex-col justify-between text-xs ${
+                          active
+                            ? 'border-indigo-600 dark:border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/40 ring-1 ring-indigo-600/40'
+                            : 'border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-slate-50/40 dark:bg-zinc-900/40'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between font-bold text-slate-900 dark:text-white">
+                            <span>{level.badge}</span>
+                            {active && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-mono mt-0.5">{level.tag}</div>
+                          <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-1.5 leading-relaxed">
+                            {level.desc}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. 4-Dimension Professional Engineering Sliders */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Dim 1: Intent Fidelity */}
                 <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 dark:text-zinc-200">直出意图切中与交付满意度:</span>
-                    <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">{directness} 分</span>
+                    <span className="font-bold text-slate-800 dark:text-zinc-200">
+                      🎯 需求理解与要害切中度 (30%):
+                    </span>
+                    <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">{intent} 分</span>
                   </div>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    是否真正吃透业务目标与隐式约束？核心链路是否 100% 跑通，严禁死按钮与半截代码。
+                  </p>
                   <input
                     type="range"
                     min="0"
                     max="100"
-                    value={directness}
-                    onChange={(e) => setDirectness(Number(e.target.value))}
-                    className="w-full accent-zinc-900 dark:accent-white cursor-pointer"
+                    value={intent}
+                    onChange={(e) => setIntent(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
                   />
-                  <div className="flex justify-end gap-1 text-[10px] text-slate-400">
-                    {[60, 80, 90, 98].map((p) => (
-                      <button
-                        key={p}
-                        onClick={() => setDirectness(p)}
-                        className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800"
-                      >
-                        {p}
-                      </button>
-                    ))}
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1">
+                    <span>快速应用段位:</span>
+                    <div className="flex gap-1">
+                      {[60, 80, 90, 98].map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setIntent(p)}
+                          className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dim 2: Maintainability */}
+                <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800 dark:text-zinc-200">
+                      🧹 代码规范与工程纯净 (25%):
+                    </span>
+                    <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">{maintainability} 分</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    模块解耦清晰、命名规范、遵循工程最佳实践，杜绝临时面条代码，后续接手成本极低。
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={maintainability}
+                    onChange={(e) => setMaintainability(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1">
+                    <span>快速应用段位:</span>
+                    <div className="flex gap-1">
+                      {[60, 80, 90, 98].map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setMaintainability(p)}
+                          className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dim 3: Robustness */}
+                <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800 dark:text-zinc-200">
+                      🛡️ 异常边界与防御健壮度 (25%):
+                    </span>
+                    <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">{robustness} 分</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    面对空数据、网络失败重试、非法边界参数、组件并发切换时，具备完备优雅降级能力。
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={robustness}
+                    onChange={(e) => setRobustness(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1">
+                    <span>快速应用段位:</span>
+                    <div className="flex gap-1">
+                      {[60, 80, 90, 98].map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setRobustness(p)}
+                          className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Dim 4: UX Ergonomics */}
+                <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold text-slate-800 dark:text-zinc-200">
+                      ✨ 交互可用性与视觉质感 (20%):
+                    </span>
+                    <span className="font-mono text-sm font-bold text-indigo-600 dark:text-indigo-400">{ux} 分</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                    界面层级清爽、深浅色模式对比度舒服、微动效平滑无滞涩感，符合现代工业级交互直觉。
+                  </p>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={ux}
+                    onChange={(e) => setUX(Number(e.target.value))}
+                    className="w-full accent-indigo-600 cursor-pointer"
+                  />
+                  <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1">
+                    <span>快速应用段位:</span>
+                    <div className="flex gap-1">
+                      {[60, 80, 90, 98].map((p) => (
+                        <button
+                          key={p}
+                          onClick={() => setUX(p)}
+                          className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200"
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
