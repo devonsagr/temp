@@ -28,6 +28,8 @@ import {
   FileCheck2,
   ShieldCheck,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   Sparkles,
   ArrowRightLeft,
   Check,
@@ -41,6 +43,10 @@ import {
   Layers,
   AlertTriangle,
   RotateCcw,
+  Copy,
+  Target,
+  ListOrdered,
+  FolderTree,
 } from 'lucide-react';
 
 interface BenchmarkRunnerViewProps {
@@ -102,9 +108,22 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
   // Simulated error injection for resiliency drill
   const [simulatedError, setSimulatedError] = useState<BattleTrialStatus | null>(null);
 
-  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>(
-    tasks.filter((t) => t.channel === 'frontend-ui').map((t) => t.id)
+  // Execution Scope: 'single' (Focused Single-Task Run) vs 'batch' (Batch Queue Run)
+  const [taskExecMode, setTaskExecMode] = useState<'single' | 'batch'>('single');
+  const [focusedTaskId, setFocusedTaskId] = useState<string>(
+    tasks.find((t) => t.channel === 'frontend-ui')?.id || tasks[0]?.id || ''
   );
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  const handleCopy = (key: string, text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 1800);
+  };
+
+  const [selectedTaskIds, setSelectedTaskIds] = useState<string[]>([
+    tasks.find((t) => t.channel === 'frontend-ui')?.id || tasks[0]?.id || ''
+  ]);
 
   const [isRunning, setIsRunning] = useState(false);
   const [liveLog, setLiveLog] = useState<string>('');
@@ -145,10 +164,23 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
     return true;
   });
 
+  const focusedTask = tasks.find((t) => t.id === focusedTaskId) || channelTasks[0] || tasks[0];
+
   const handleChannelSelect = (ch: TaskChannel) => {
     setSelectedChannel(ch);
-    const chTasks = tasks.filter((t) => t.channel === ch).map((t) => t.id);
-    setSelectedTaskIds(chTasks);
+    const chTasks = tasks.filter((t) => t.channel === ch);
+    const firstTaskId = chTasks[0]?.id || '';
+    if (taskExecMode === 'single') {
+      setFocusedTaskId(firstTaskId);
+      setSelectedTaskIds(firstTaskId ? [firstTaskId] : []);
+    } else {
+      setSelectedTaskIds(chTasks.map((t) => t.id));
+    }
+  };
+
+  const handleSelectFocusedTask = (id: string) => {
+    setFocusedTaskId(id);
+    setSelectedTaskIds([id]);
   };
 
   const toggleTaskSelection = (id: string) => {
@@ -271,10 +303,19 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowWeightCustomizer(!showWeightCustomizer)}
-            className="btn-secondary !text-xs !py-1.5 flex items-center gap-1.5"
+            className={`text-xs !py-1.5 flex items-center gap-1.5 px-3 rounded-xl border transition-all ${
+              showWeightCustomizer
+                ? 'bg-indigo-50 dark:bg-indigo-950/70 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold shadow-sm ring-1 ring-indigo-500/30'
+                : 'btn-secondary text-slate-700 dark:text-zinc-300 hover:border-indigo-300'
+            }`}
           >
             <Sliders className="w-3.5 h-3.5 text-indigo-500" />
             <span>评分权重策略: {activePreset.tag}</span>
+            {showWeightCustomizer ? (
+              <ChevronUp className="w-3.5 h-3.5 ml-0.5 text-indigo-500" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 ml-0.5 text-slate-400" />
+            )}
           </button>
 
           <button
@@ -287,12 +328,30 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
         </div>
       </div>
 
-      {/* Collapsible Weight Preset Customizer */}
+      {/* Collapsible Weight Preset Customizer with clear visual anchor */}
       {showWeightCustomizer && (
-        <WeightPresetCustomizer
-          currentPresetId={activePreset.id}
-          onSelectPreset={(p) => setActivePreset(p)}
-        />
+        <div className="p-4 rounded-2xl bg-indigo-50/40 dark:bg-indigo-950/20 border-2 border-indigo-500/50 space-y-3 animate-slide-up shadow-md">
+          <div className="flex items-center justify-between border-b border-indigo-200/60 dark:border-indigo-900/60 pb-2.5">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-indigo-600 text-white">
+                正在生效: {activePreset.name}
+              </span>
+              <span className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
+                各评测维度权重占比公示与实时微调面板（所有跑分实时应用此公式）
+              </span>
+            </div>
+            <button
+              onClick={() => setShowWeightCustomizer(false)}
+              className="text-xs text-slate-500 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded-lg hover:bg-white dark:hover:bg-zinc-800 transition-colors"
+            >
+              ✕ 收起面板
+            </button>
+          </div>
+          <WeightPresetCustomizer
+            currentPresetId={activePreset.id}
+            onSelectPreset={(p) => setActivePreset(p)}
+          />
+        </div>
       )}
 
       {/* 3. Three-Step Benchmarking Workbench */}
@@ -429,17 +488,49 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
 
         {/* Step 2: Select Tasks Channel & Specific Tasks */}
         <div className="panel p-5 space-y-4 bg-white dark:bg-[#121215]">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
             <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 flex items-center justify-center text-[10px]">
                 2
               </span>
-              <span>选择评测赛道与测试用例</span>
+              <span>选择评测赛道与执行模式</span>
             </h3>
 
-            <span className="text-[11px] text-slate-400">
-              已选中 {selectedTaskIds.length} / {channelTasks.length} 题
-            </span>
+            {/* Scope Mode Switcher: Single vs Batch */}
+            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-900 rounded-xl border border-slate-200/80 dark:border-zinc-800 text-xs">
+              <button
+                onClick={() => {
+                  setTaskExecMode('single');
+                  const currentOrFirst = channelTasks.find((t) => t.id === focusedTaskId) || channelTasks[0];
+                  if (currentOrFirst) {
+                    setFocusedTaskId(currentOrFirst.id);
+                    setSelectedTaskIds([currentOrFirst.id]);
+                  }
+                }}
+                className={`px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                  taskExecMode === 'single'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm font-bold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <Target className="w-3.5 h-3.5 text-indigo-500" />
+                <span>🎯 单题精细评测 (推荐)</span>
+              </button>
+              <button
+                onClick={() => {
+                  setTaskExecMode('batch');
+                  setSelectedTaskIds(channelTasks.map((t) => t.id));
+                }}
+                className={`px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                  taskExecMode === 'batch'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm font-bold'
+                    : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <ListOrdered className="w-3.5 h-3.5 text-purple-500" />
+                <span>📑 批量队列自动跑 ({channelTasks.length}题)</span>
+              </button>
+            </div>
           </div>
 
           {/* Channel Selector Pills */}
@@ -529,7 +620,31 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
             </div>
           </div>
 
-          {/* Task Checkboxes */}
+          {/* Batch Mode Header bar if batch */}
+          {taskExecMode === 'batch' && (
+            <div className="flex items-center justify-between text-xs pt-1">
+              <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                批量队列已选中 {selectedTaskIds.length} / {channelTasks.length} 题
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setSelectedTaskIds(channelTasks.map((t) => t.id))}
+                  className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
+                >
+                  全选当前题
+                </button>
+                <span className="text-slate-300 dark:text-zinc-700">|</span>
+                <button
+                  onClick={() => setSelectedTaskIds(channelTasks.length > 0 ? [channelTasks[0].id] : [])}
+                  className="text-[11px] text-slate-400 hover:text-slate-600"
+                >
+                  仅留单题
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Task Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
             {channelTasks.length === 0 ? (
               <div className="col-span-2 py-6 text-center text-xs text-slate-400">
@@ -537,33 +652,57 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
               </div>
             ) : (
               channelTasks.map((t) => {
-                const checked = selectedTaskIds.includes(t.id);
+                const isSelected =
+                  taskExecMode === 'single'
+                    ? focusedTaskId === t.id
+                    : selectedTaskIds.includes(t.id);
+
                 return (
                   <div
                     key={t.id}
-                    onClick={() => toggleTaskSelection(t.id)}
+                    onClick={() => {
+                      if (taskExecMode === 'single') {
+                        handleSelectFocusedTask(t.id);
+                      } else {
+                        toggleTaskSelection(t.id);
+                      }
+                    }}
                     className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                      checked
-                        ? 'bg-slate-50 dark:bg-zinc-900 border-zinc-400 dark:border-zinc-600 text-slate-900 dark:text-white'
-                        : 'bg-white dark:bg-[#121215] border-slate-200/70 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 opacity-60'
+                      isSelected
+                        ? 'bg-slate-50 dark:bg-zinc-900 border-zinc-900 dark:border-white ring-1 ring-zinc-900 dark:ring-white text-slate-900 dark:text-white shadow-sm'
+                        : 'bg-white dark:bg-[#121215] border-slate-200/70 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-slate-300'
                     }`}
                   >
                     <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
-                      <input
-                        type="checkbox"
-                        checked={checked}
-                        onChange={() => {}}
-                        className="rounded text-zinc-900 dark:text-white shrink-0"
-                      />
+                      {taskExecMode === 'single' ? (
+                        <div
+                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                            isSelected
+                              ? 'border-indigo-600 bg-indigo-600 text-white'
+                              : 'border-slate-300 dark:border-zinc-700'
+                          }`}
+                        >
+                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                        </div>
+                      ) : (
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="rounded text-zinc-900 dark:text-white shrink-0"
+                        />
+                      )}
                       <span className="font-medium truncate">{t.title}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                        t.taskParadigm === 'deterministic-bugfix'
-                          ? 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
-                          : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
-                      }`}>
+                      <span
+                        className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
+                          t.taskParadigm === 'deterministic-bugfix'
+                            ? 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                            : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
+                        }`}
+                      >
                         {t.taskParadigm === 'deterministic-bugfix' ? '客观单测' : '项目构建'}
                       </span>
 
@@ -585,15 +724,17 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                         </span>
                       )}
 
-                      <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                        t.difficulty === 'Nightmare'
-                          ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400'
-                          : t.difficulty === 'Hard'
-                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
-                          : t.difficulty === 'Medium'
-                          ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400'
-                          : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
-                      }`}>
+                      <span
+                        className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                          t.difficulty === 'Nightmare'
+                            ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400'
+                            : t.difficulty === 'Hard'
+                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
+                            : t.difficulty === 'Medium'
+                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400'
+                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
+                        }`}
+                      >
                         {t.difficulty}
                       </span>
                     </div>
@@ -602,6 +743,127 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
               })
             )}
           </div>
+
+          {/* Focused Single Task Deep Inspector Card */}
+          {taskExecMode === 'single' && focusedTask && (
+            <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-3 mt-3 animate-slide-up">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 dark:border-zinc-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="font-bold text-xs text-slate-900 dark:text-white">
+                    当前聚焦执行任务: {focusedTask.title}
+                  </span>
+                  <span
+                    className={`text-[10px] px-2 py-0.5 rounded font-mono ${
+                      focusedTask.taskParadigm === 'deterministic-bugfix'
+                        ? 'bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
+                        : 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300'
+                    }`}
+                  >
+                    {focusedTask.taskParadigm === 'deterministic-bugfix'
+                      ? '🐛 确定性 Bug 修复'
+                      : '🚀 项目构建主力轨'}
+                  </span>
+                </div>
+
+                <span className="text-[11px] text-slate-400 font-mono">
+                  ID: {focusedTask.id} · 难度: {focusedTask.difficulty}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Sandbox Path */}
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                      <FolderTree className="w-3.5 h-3.5 text-indigo-500" />
+                      物理隔离沙箱工作区
+                    </span>
+                    <button
+                      onClick={() =>
+                        handleCopy('focused-ws', `~/.codex/sandboxes/eval-${focusedTask.id}`)
+                      }
+                      className="btn-ghost !text-[10px] !py-0.5 flex items-center gap-1 text-indigo-600 dark:text-indigo-400"
+                    >
+                      {copiedKey === 'focused-ws' ? (
+                        <Check className="w-3 h-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                      <span>{copiedKey === 'focused-ws' ? '已复制' : '复制目录'}</span>
+                    </button>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-900 text-[11px] font-mono text-slate-800 dark:text-zinc-200 border border-slate-200/60 dark:border-zinc-800 truncate select-all">
+                    ~/.codex/sandboxes/eval-{focusedTask.id}
+                  </div>
+                </div>
+
+                {/* Verification Command */}
+                <div className="p-3 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                      <Terminal className="w-3.5 h-3.5 text-emerald-500" />
+                      客观断言命令 (Exit Code 0)
+                    </span>
+                    <button
+                      onClick={() => handleCopy('focused-cmd', focusedTask.verificationCmd)}
+                      className="btn-ghost !text-[10px] !py-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400"
+                    >
+                      {copiedKey === 'focused-cmd' ? (
+                        <Check className="w-3 h-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="w-3 h-3" />
+                      )}
+                      <span>{copiedKey === 'focused-cmd' ? '已复制' : '复制命令'}</span>
+                    </button>
+                  </div>
+                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-900 text-[11px] font-mono text-slate-800 dark:text-zinc-200 border border-slate-200/60 dark:border-zinc-800 truncate select-all">
+                    {focusedTask.verificationCmd}
+                  </div>
+                </div>
+              </div>
+
+              {/* Task Prompt Box */}
+              <div className="p-3 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <FileCheck2 className="w-3.5 h-3.5 text-purple-500" />
+                    真实需求指令 Prompt 预览 ({focusedTask.inputPrompt.length} 字)
+                  </span>
+                  <button
+                    onClick={() => handleCopy('focused-prompt', focusedTask.inputPrompt)}
+                    className="btn-ghost !text-[10px] !py-0.5 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold"
+                  >
+                    {copiedKey === 'focused-prompt' ? (
+                      <Check className="w-3 h-3 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
+                    <span>{copiedKey === 'focused-prompt' ? '已复制提示词' : '一键复制提示词'}</span>
+                  </button>
+                </div>
+                <pre className="p-2.5 rounded-lg bg-slate-950 font-mono text-[11px] text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto border border-zinc-800">
+                  {focusedTask.inputPrompt}
+                </pre>
+              </div>
+
+              {/* 3-Step Review Workflow Pill */}
+              <div className="p-2.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0" />
+                  <span>
+                    <strong>全自动三步流水线：</strong>沙箱 Exit Code 0 ➔ Review Agent 自动拉取 Diff 与日志打分（免人肉二次复制）➔ 人工可用性质感微调
+                  </span>
+                </div>
+                <button
+                  onClick={() => setIsCodexLauncherOpen(true)}
+                  className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                >
+                  查看沙箱编排详情 →
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Step 3: Run Benchmark Button & Error Injection Playground */}
@@ -609,11 +871,13 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
           <div>
             <div className="text-sm font-bold text-slate-900 dark:text-white">
               {benchMode === 'single'
-                ? `准备对【${activeConfig?.name}】(${activeConfig?.baseModel || 'GPT-6'}) 执行基准跑分`
+                ? `准备对【${activeConfig?.name}】(${activeConfig?.baseModel || 'GPT-6'}) 执行跑分`
                 : `准备对【${activeConfig?.name}】与【${compareConfigB?.name}】执行对照测试`}
             </div>
             <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
-              将依次执行选中的 {selectedTaskIds.length} 道测试题，测量代码通过率、直达效率与交互手感
+              {taskExecMode === 'single'
+                ? `🎯 单题精细执行: 仅针对【${focusedTask?.title || '选定任务'}】进行沙箱测试、Diff 提取与三层审查`
+                : `📑 批量队列自动跑: 将按序在独立沙箱中执行选中的 ${selectedTaskIds.length} 道测试题并汇总战报`}
             </div>
           </div>
 
@@ -639,7 +903,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
             </div>
 
             <button
-              disabled={isRunning}
+              disabled={isRunning || selectedTaskIds.length === 0}
               onClick={handleStartBenchmark}
               className="btn-primary !px-6 !py-2.5 !text-sm flex items-center gap-2 shadow-md shrink-0"
             >
@@ -651,7 +915,11 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
               ) : (
                 <>
                   <Play className="w-4 h-4 fill-current" />
-                  <span>{benchMode === 'single' ? '开始跑分评测' : '开始 A/B 对照评测'}</span>
+                  <span>
+                    {taskExecMode === 'single'
+                      ? `🚀 立即启动单题精细评测`
+                      : `🚀 启动批量队列自动跑分 (${selectedTaskIds.length}题)`}
+                  </span>
                 </>
               )}
             </button>
@@ -985,7 +1253,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                     <div className="space-y-1.5 bg-white dark:bg-[#121215] p-3 rounded-lg border border-slate-200/80 dark:border-zinc-800">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-slate-700 dark:text-zinc-300">
-                          单指令直出切中满意度 (反过度工程化):
+                          单指令直出意图切中与交付满意度:
                         </span>
                         <div className="flex items-center gap-1.5 font-mono">
                           <button

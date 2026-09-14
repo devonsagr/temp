@@ -602,7 +602,7 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-                      严格对齐 Spec 规范书，无多余空架子文件与过度工程化。
+                      严格对齐 Spec 规范书，无多余空架子文件，代码轻量纯净。
                     </p>
                     <input
                       type="range"
@@ -656,7 +656,7 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
                 <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/80 text-xs flex items-start gap-2 text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                   <div>
-                    <div className="font-bold">检测到非必要的过度工程化包装文件！</div>
+                    <div className="font-bold">检测到非必要的冗余包装文件！</div>
                     <div className="text-[11px] mt-0.5">
                       以下文件为多余抽象，严重拖慢交付直达效率：
                       {trial.aiJudgeReport.detectedBloatFiles.map((f) => (
@@ -908,7 +908,7 @@ export const HumanReviewModal: React.FC<HumanReviewModalProps> = ({
 
                 <div className="panel p-4 bg-white dark:bg-[#121215] space-y-2">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-slate-800 dark:text-zinc-200">直出切中满意度 (反过度工程化):</span>
+                    <span className="font-bold text-slate-800 dark:text-zinc-200">直出意图切中与交付满意度:</span>
                     <span className="font-mono text-sm font-bold text-slate-900 dark:text-white">{directness} 分</span>
                   </div>
                   <input

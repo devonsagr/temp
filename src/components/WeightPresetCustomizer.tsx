@@ -100,7 +100,7 @@ export const WeightPresetCustomizer: React.FC<WeightPresetCustomizerProps> = ({
           </div>
 
           <div className="p-2.5 rounded-lg bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800">
-            <div className="text-slate-400 text-[10px]">直达效率 (反过度工程化)</div>
+            <div className="text-slate-400 text-[10px]">直达效率 (意图切中与代码纯净)</div>
             <div className="text-base font-bold font-mono text-slate-900 dark:text-white mt-0.5">
               {activePreset.weights.directness}%
             </div>

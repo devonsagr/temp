@@ -20,7 +20,7 @@ export const WEIGHT_PRESETS: WeightPreset[] = [
   {
     id: 'preset-sniper',
     name: '极简直击交付型 (Sniper Directness)',
-    tag: '反过度工程化',
+    tag: '精简交付',
     desc: '重奖单轮一步到位、首轮直出与零冗余文件，重罚多余包装与来回扯皮',
     weights: { codePass: 25, directness: 45, aesthetic: 10, constraint: 20 },
   },
@@ -761,10 +761,10 @@ class ArenaStore {
         ? `\n\n--- /dev/null
 +++ b/src/helpers/unneeded_logger_wrapper.ts
 @@ -0,0 +1,14 @@
-+// [过度工程化检测] 无效中间封装类
-+export class BloatLoggerWrapper {
-+  static log(msg: string) { console.log('[Trace]', msg); }
-+}`
++// [冗余封装检测] 无效中间封装类
+export class BloatLoggerWrapper {
+  static log(msg: string) { console.log('[Trace]', msg); }
+}`
         : '';
 
       return `--- a/src/components/${task.id.slice(0, 8)}.tsx
@@ -842,15 +842,15 @@ class ArenaStore {
       verdict: scores.codePassScore >= 70 ? 'passed' : 'failed',
       rationale: `【独立裁判 AI 评述】:
 1. 代码执行与断言：通过全部客观自动化回归测试，无未捕获异常；
-2. 反过度工程化与直达效率：${
+2. 意图切中与精简交付：${
         isHeavy
-          ? '检测到生成了多余的包装文件 (unneeded_logger_wrapper.ts)，存在过度封装倾向，扣除直达与轻量分。'
+          ? '检测到生成了多余的包装文件 (unneeded_logger_wrapper.ts)，存在代码冗余倾向，扣除精简交付分。'
           : '首轮切中需求要害，改动精准克制，无任何多余包装文件。'
       }
 3. 交互质感与规范：结构优雅清晰，完整遵守了当前配置的个性化约束清单。`,
       rubricBreakdown: {
         '客观自动化断言': scores.codePassScore,
-        '直达核心与反蔓延': scores.directnessScore,
+        '意图切中与精简交付': scores.directnessScore,
         '视觉与交互手感': scores.aestheticScore,
         '团队私有约束': scores.constraintScore,
       },

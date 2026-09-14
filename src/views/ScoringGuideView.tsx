@@ -131,7 +131,7 @@ export const ScoringGuideView: React.FC = () => {
    - 在 Stage 2 跑完后，系统必须重新运行 \`npm run test:stage-1\`！检查第二轮新代码有没有把第一轮辛辛苦苦写好的功能改崩！一旦改崩，扣除严重回归分；
 3. Git Diff 与文件树纯净度：
    - 在该文件夹内运行 \`git status --porcelain\` 与 \`git diff --stat\`；
-   - 检查 AI 是否精准切中需求要害，严惩擅自新建临时 demo 文件、无用日志包装类等过度工程化行为。
+    - 检查 AI 是否精准切中需求要害，严惩擅自新建临时 demo 文件、无用日志包装类等代码冗余破坏行为。
 
 三、这是一次性的吗？每次评测怎么对比、怎么重放？
 - 单次执行是一个闭环的任务 Job，但整套机制是 100% 可重复回放、可横向对照（A/B Testing）的！
@@ -199,7 +199,7 @@ export const ScoringGuideView: React.FC = () => {
                 工业界主流 Benchmark 横向对比矩阵
               </h3>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-                为什么已有测试基准无法衡量“过度工程化”与“Harness 交付效率”？
+                为什么已有测试基准无法衡量“代码纯净度”与“Harness 交付效率”？
               </p>
             </div>
           </div>
@@ -215,7 +215,7 @@ export const ScoringGuideView: React.FC = () => {
                 <th className="py-2.5 px-3 font-semibold w-28">评测基准</th>
                 <th className="py-2.5 px-3 font-semibold">核心评测目标</th>
                 <th className="py-2.5 px-3 font-semibold">单轮直击与效率</th>
-                <th className="py-2.5 px-3 font-semibold">反过度工程化与零冗余</th>
+                <th className="py-2.5 px-3 font-semibold">意图切中与代码纯净度</th>
                 <th className="py-2.5 px-3 font-semibold">UI 美感与交互质感</th>
                 <th className="py-2.5 px-3 font-semibold">私有 Harness 约束挂载</th>
               </tr>
