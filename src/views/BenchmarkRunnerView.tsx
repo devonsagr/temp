@@ -77,7 +77,7 @@ interface BenchmarkRunnerViewProps {
 }
 
 // Helper: Cleans up verbose prefixes and extracts secondary subtitles for clean readability
-export const cleanTaskTitle = (rawTitle: string) => {
+const cleanTaskTitle = (rawTitle: string) => {
   const stripped = rawTitle.replace(/^从(?:需求|模糊需求|零全栈实现)到落地[：:]\s*/, '');
   const match = stripped.match(/^(.*?)\s*[(（](.*?)[)）]$/);
   if (match) {
