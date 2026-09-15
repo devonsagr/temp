@@ -49,6 +49,7 @@ import {
   Target,
   ListOrdered,
   FolderTree,
+  Edit3,
 } from 'lucide-react';
 
 interface BenchmarkRunnerViewProps {
@@ -119,6 +120,8 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
     tasks.find((t) => t.channel === 'frontend-ui')?.id || tasks[0]?.id || ''
   );
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [customWorkspaces, setCustomWorkspaces] = useState<Record<string, string>>({});
+  const [isCustomWsMode, setIsCustomWsMode] = useState<Record<string, boolean>>({});
 
   const handleCopy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -841,42 +844,84 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Sandbox & Command Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    {/* Sandbox Path */}
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-1">
+                  {/* Workspace Directory & Objective Command Grid */}
+                  <div className="space-y-2.5">
+                    {/* Sandbox / Workspace Directory */}
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                          <FolderTree className="w-3 h-3 text-indigo-500" />
-                          物理隔离沙箱
+                        <span className="text-[11px] font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5">
+                          <FolderTree className="w-3.5 h-3.5 text-indigo-500" />
+                          物理工作区目录 (Codex 在此处读写代码)
                         </span>
-                        <button
-                          onClick={() =>
-                            handleCopy('focused-ws', `~/.codex/sandboxes/eval-${focusedTask.id}`)
-                          }
-                          className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
-                        >
-                          {copiedKey === 'focused-ws' ? (
-                            <Check className="w-2.5 h-2.5 text-emerald-500" />
-                          ) : (
-                            <Copy className="w-2.5 h-2.5" />
-                          )}
-                          <span>{copiedKey === 'focused-ws' ? '已复制' : '复制'}</span>
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const currentMode = isCustomWsMode[focusedTask.id] || false;
+                              setIsCustomWsMode((prev) => ({ ...prev, [focusedTask.id]: !currentMode }));
+                            }}
+                            className="text-[10px] px-2 py-0.5 rounded-md border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors"
+                          >
+                            <Edit3 className="w-2.5 h-2.5" />
+                            <span>{isCustomWsMode[focusedTask.id] ? '切回推荐沙箱' : '指定本地目录'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const path = isCustomWsMode[focusedTask.id]
+                                ? customWorkspaces[focusedTask.id] || `~/.codex/sandboxes/eval-${focusedTask.id}`
+                                : `~/.codex/sandboxes/eval-${focusedTask.id}`;
+                              handleCopy('focused-ws', path);
+                            }}
+                            className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 ml-1"
+                          >
+                            {copiedKey === 'focused-ws' ? (
+                              <Check className="w-2.5 h-2.5 text-emerald-500" />
+                            ) : (
+                              <Copy className="w-2.5 h-2.5" />
+                            )}
+                            <span>{copiedKey === 'focused-ws' ? '已复制' : '复制路径'}</span>
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-[11px] font-mono text-slate-700 dark:text-zinc-300 truncate select-all">
-                        ~/.codex/sandboxes/eval-{focusedTask.id}
-                      </div>
+
+                      {isCustomWsMode[focusedTask.id] ? (
+                        <div className="space-y-1">
+                          <input
+                            type="text"
+                            value={customWorkspaces[focusedTask.id] || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setCustomWorkspaces((prev) => ({ ...prev, [focusedTask.id]: val }));
+                            }}
+                            placeholder="粘贴本地测试文件夹的绝对路径，例如: D:/test-projects/eval-01"
+                            className="w-full px-2.5 py-1.5 text-xs font-mono rounded-lg border border-indigo-300 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/20 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          />
+                          <div className="text-[10px] text-slate-400 dark:text-zinc-500">
+                            💡 Codex 桌面端直接打开此文件夹后执行需求，代码将直接落在此目录下。
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-slate-50 dark:bg-zinc-900/80 border border-slate-100 dark:border-zinc-800/80">
+                          <span className="text-[11px] font-mono text-slate-700 dark:text-zinc-300 truncate select-all">
+                            ~/.codex/sandboxes/eval-{focusedTask.id}
+                          </span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100/70 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 shrink-0 font-medium">
+                            推荐隔离沙箱
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Test Assertion Command */}
-                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-1">
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                           <Terminal className="w-3 h-3 text-emerald-500" />
-                          客观验证命令 (Exit Code 0)
+                          客观验证断言命令 (Exit Code 0 代表通过)
                         </span>
                         <button
+                          type="button"
                           onClick={() =>
                             handleCopy('focused-cmd', focusedTask.verificationCmd)
                           }
@@ -887,11 +932,33 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                           ) : (
                             <Copy className="w-2.5 h-2.5" />
                           )}
-                          <span>{copiedKey === 'focused-cmd' ? '已复制' : '复制'}</span>
+                          <span>{copiedKey === 'focused-cmd' ? '已复制' : '复制命令'}</span>
                         </button>
                       </div>
-                      <div className="text-[11px] font-mono text-slate-700 dark:text-zinc-300 truncate select-all">
+                      <div className="text-[11px] font-mono text-slate-700 dark:text-zinc-300 truncate select-all bg-slate-50 dark:bg-zinc-900/80 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-zinc-800/80">
                         {focusedTask.verificationCmd}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3-Step Practical Acceptance Flow Guide */}
+                  <div className="p-3 rounded-xl bg-slate-50/80 dark:bg-zinc-900/50 border border-slate-200/80 dark:border-zinc-800 space-y-1.5 text-xs">
+                    <div className="font-bold text-slate-800 dark:text-zinc-200 flex items-center gap-1.5 text-[11px]">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>实际评测与验收三步闭环:</span>
+                    </div>
+                    <div className="space-y-1 text-[11px] text-slate-600 dark:text-zinc-400 pl-1">
+                      <div className="flex items-start gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">1</span>
+                        <span><strong>Codex 跑代码</strong>：复制上方提示词，在选定工作区文件夹中发给 Codex 编写代码。</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">2</span>
+                        <span><strong>终端客观验收</strong>：在该文件夹内运行上方命令（看 Exit Code 0）及 <code className="font-mono text-[10px]">git diff</code> 查看文件洁净度。</span>
+                      </div>
+                      <div className="flex items-start gap-1.5">
+                        <span className="w-4 h-4 rounded-full bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center font-bold text-[9px] shrink-0 mt-0.5">3</span>
+                        <span><strong>结果录入与复审</strong>：点击下方【立即启动评测】记录数据，点击【专家复审】核定 4 维量表并入榜。</span>
                       </div>
                     </div>
                   </div>
@@ -1942,6 +2009,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
         <CodexLauncherModal
           config={activeConfig}
           tasks={tasks.filter((t) => selectedTaskIds.includes(t.id))}
+          customWorkspaces={customWorkspaces}
           onClose={() => setIsCodexLauncherOpen(false)}
           onExecuteNow={() => {
             setIsCodexLauncherOpen(false);

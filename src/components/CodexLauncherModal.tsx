@@ -17,11 +17,13 @@ import {
   ArrowRight,
   Layers,
   Sparkles,
+  Edit3,
 } from 'lucide-react';
 
 interface CodexLauncherModalProps {
   config: HarnessConfig;
   tasks: BenchmarkTask[];
+  customWorkspaces?: Record<string, string>;
   onClose: () => void;
   onExecuteNow: () => void;
 }
@@ -29,12 +31,15 @@ interface CodexLauncherModalProps {
 export const CodexLauncherModal: React.FC<CodexLauncherModalProps> = ({
   config,
   tasks,
+  customWorkspaces,
   onClose,
   onExecuteNow,
 }) => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'task-run' | 'review-pipeline' | 'lifecycle' | 'automation'>('task-run');
   const [selectedTaskId, setSelectedTaskId] = useState<string>(tasks[0]?.id || 'proj-01-fullstack-kanban');
+  const [localCustomWs, setLocalCustomWs] = useState<Record<string, string>>(customWorkspaces || {});
+  const [isCustomMode, setIsCustomMode] = useState<boolean>(Boolean(customWorkspaces?.[tasks[0]?.id || 'proj-01-fullstack-kanban']));
 
   const handleCopy = (key: string, text: string) => {
     navigator.clipboard.writeText(text);
@@ -51,7 +56,8 @@ export const CodexLauncherModal: React.FC<CodexLauncherModalProps> = ({
     taskParadigm: 'open-ended-project',
   };
 
-  const workspacePath = `~/.codex/sandboxes/eval-${currentTask.id}`;
+  const defaultWsPath = `~/.codex/sandboxes/eval-${currentTask.id}`;
+  const workspacePath = isCustomMode && localCustomWs[currentTask.id] ? localCustomWs[currentTask.id] : defaultWsPath;
   const inputPrompt = currentTask.inputPrompt;
 
   const cliCommand = `codex harness run \\
@@ -62,8 +68,8 @@ export const CodexLauncherModal: React.FC<CodexLauncherModalProps> = ({
   --rubric "universal-v1" \\
   --auto-review`;
 
-  const pwshScript = `# 1. 创建干净隔离沙箱
-$evalDir = "$HOME/.codex/sandboxes/eval-${currentTask.id}"
+  const pwshScript = `# 1. 准备物理工作区
+$evalDir = "${workspacePath.startsWith('~') ? '$HOME' + workspacePath.slice(1) : workspacePath}"
 New-Item -ItemType Directory -Force -Path $evalDir
 Set-Location $evalDir
 
@@ -170,26 +176,59 @@ Invoke-RestMethod -Uri "http://localhost:5174/api/review" -Method Post -Body (@{
               </div>
 
               {/* Workspace Directory & Copy */}
-              <div className="p-4 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-2">
+              <div className="p-4 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 font-bold text-slate-900 dark:text-white">
                     <FolderTree className="w-4 h-4 text-indigo-500" />
-                    <span>1. 物理沙箱隔离工作区 (Sandbox Directory)</span>
+                    <span>1. 物理工作区目录 (Workspace Directory)</span>
                   </div>
-                  <button
-                    onClick={() => handleCopy('wsPath', workspacePath)}
-                    className="btn-ghost !text-xs !py-1 flex items-center gap-1 text-indigo-600 dark:text-indigo-400"
-                  >
-                    {copiedKey === 'wsPath' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copiedKey === 'wsPath' ? '已复制沙箱路径' : '复制沙箱路径'}</span>
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomMode(!isCustomMode)}
+                      className="text-xs px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 flex items-center gap-1 transition-colors"
+                    >
+                      <Edit3 className="w-3 h-3" />
+                      <span>{isCustomMode ? '切回推荐沙箱' : '指定本地目录'}</span>
+                    </button>
+                    <button
+                      onClick={() => handleCopy('wsPath', workspacePath)}
+                      className="btn-ghost !text-xs !py-1 flex items-center gap-1 text-indigo-600 dark:text-indigo-400"
+                    >
+                      {copiedKey === 'wsPath' ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedKey === 'wsPath' ? '已复制路径' : '复制路径'}</span>
+                    </button>
+                  </div>
                 </div>
+
                 <p className="text-slate-600 dark:text-zinc-400 text-[11px]">
-                  在此物理路径下初始化 Git 仓库与基线代码。在 Codex 中直接使用 <strong>Open Folder</strong> 打开此目录：
+                  在 Codex 中直接使用 <strong>Open Folder</strong> 打开此目录，Codex 编写的代码将存放在此：
                 </p>
-                <div className="p-2.5 rounded-lg bg-slate-100 dark:bg-zinc-900 font-mono text-xs text-slate-800 dark:text-zinc-200 select-all border border-slate-200/60 dark:border-zinc-800">
-                  {workspacePath}
-                </div>
+
+                {isCustomMode ? (
+                  <div className="space-y-1">
+                    <input
+                      type="text"
+                      value={localCustomWs[currentTask.id] || ''}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLocalCustomWs((prev) => ({ ...prev, [currentTask.id]: val }));
+                      }}
+                      placeholder="粘贴本地测试文件夹的绝对路径，例如: D:/test-projects/eval-01"
+                      className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-indigo-300 dark:border-indigo-800 bg-indigo-50/30 dark:bg-indigo-950/20 text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    <div className="text-[10px] text-slate-400 dark:text-zinc-500">
+                      💡 指定本地目录后，当前页面中的脚本与命令将自动同步替换为此绝对路径。
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-100 dark:bg-zinc-900 font-mono text-xs text-slate-800 dark:text-zinc-200 select-all border border-slate-200/60 dark:border-zinc-800">
+                    <span>{defaultWsPath}</span>
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-medium">
+                      推荐独立沙箱
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Task Prompt Box */}
