@@ -50,7 +50,7 @@ export const ScoreFormulaCard: React.FC<ScoreFormulaCardProps> = ({
       {/* Top Banner */}
       <div className="px-4 py-3 sm:px-5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50/70 dark:bg-zinc-900/60 border-b border-slate-200/80 dark:border-zinc-800">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 flex items-center justify-center shadow-sm">
+          <div className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 flex items-center justify-center shadow-sm">
             <Scale className="w-4 h-4" />
           </div>
           <div>
@@ -58,7 +58,7 @@ export const ScoreFormulaCard: React.FC<ScoreFormulaCardProps> = ({
               <span className="font-bold text-xs text-slate-900 dark:text-zinc-100">
                 双轨评测体系与工业级权重公示
               </span>
-              <span className="text-[11px] px-2 py-0.5 rounded font-mono font-bold bg-indigo-50 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+              <span className="text-[10px] px-2 py-0.5 rounded font-medium bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200/80 dark:border-zinc-700">
                 机械客观自动化 (50%) ⟷ 人类专家 5 维复审 (50%)
               </span>
             </div>

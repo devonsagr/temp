@@ -262,7 +262,7 @@ export const TaskBankView: React.FC<TaskBankViewProps> = ({
                   onClick={() => setSelectedChannel('all')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                     selectedChannel === 'all'
-                      ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm'
                       : 'bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700'
                   }`}
                 >
@@ -274,7 +274,7 @@ export const TaskBankView: React.FC<TaskBankViewProps> = ({
                     onClick={() => setSelectedChannel(ch.id as TaskChannel)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all ${
                       selectedChannel === ch.id
-                        ? 'bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 shadow-sm'
+                        ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 shadow-sm'
                         : 'bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700'
                     }`}
                   >
@@ -301,7 +301,7 @@ export const TaskBankView: React.FC<TaskBankViewProps> = ({
                   onClick={() => setSelectedParadigm('all')}
                   className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
                     selectedParadigm === 'all'
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold'
+                      ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold'
                       : 'bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 border border-slate-200 dark:border-zinc-700'
                   }`}
                 >

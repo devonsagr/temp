@@ -56,7 +56,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
             onClick={() => setSelectedTrack('all')}
             className={`px-3 py-1.5 rounded-xl font-medium transition-all ${
               selectedTrack === 'all'
-                ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 font-bold shadow-sm'
+                ? 'bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-bold shadow-sm'
                 : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
             }`}
           >
@@ -94,7 +94,7 @@ export const LeaderboardView: React.FC<LeaderboardViewProps> = ({
             onClick={() => setSelectedModel('all')}
             className={`px-2.5 py-1 rounded-lg transition-all font-medium ${
               selectedModel === 'all'
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-950 font-semibold'
+                ? 'bg-slate-900 text-white dark:bg-zinc-100 dark:text-zinc-900 font-semibold'
                 : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
             }`}
           >

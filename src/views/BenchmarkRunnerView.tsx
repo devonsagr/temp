@@ -76,6 +76,16 @@ interface BenchmarkRunnerViewProps {
   ) => void;
 }
 
+// Helper: Cleans up verbose prefixes and extracts secondary subtitles for clean readability
+export const cleanTaskTitle = (rawTitle: string) => {
+  const stripped = rawTitle.replace(/^从(?:需求|模糊需求|零全栈实现)到落地[：:]\s*/, '');
+  const match = stripped.match(/^(.*?)\s*[(（](.*?)[)）]$/);
+  if (match) {
+    return { title: match[1].trim(), subtitle: match[2].trim() };
+  }
+  return { title: stripped, subtitle: '' };
+};
+
 export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
   configs,
   tasks,
@@ -401,7 +411,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                     onClick={() => setSelectedConfigId(c.id)}
                     className={`p-3.5 rounded-xl border cursor-pointer transition-all duration-150 flex flex-col justify-between ${
                       isSelected
-                        ? 'border-zinc-900 dark:border-white bg-slate-50 dark:bg-zinc-900 ring-1 ring-zinc-900 dark:ring-white'
+                        ? 'border-indigo-600 dark:border-indigo-500 bg-indigo-50/40 dark:bg-indigo-950/30 ring-1 ring-indigo-500/40'
                         : 'border-slate-200/80 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700 bg-white dark:bg-[#121215]'
                     }`}
                   >
@@ -410,7 +420,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                         <span className="font-bold text-xs text-slate-900 dark:text-white">
                           {c.name}
                         </span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-zinc-900 dark:text-white" />}
+                        {isSelected && <Check className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />}
                       </div>
 
                       <div className="flex items-center gap-1.5 my-1 flex-wrap">
@@ -505,18 +515,26 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
           )}
         </div>
 
-        {/* Step 2: Select Tasks Channel & Specific Tasks */}
+        {/* Step 2: Select Tasks Channel & Specific Tasks (Clean Master-Detail Workspace) */}
         <div className="panel p-5 space-y-4 bg-white dark:bg-[#121215]">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-zinc-900 text-white dark:bg-white dark:text-zinc-900 flex items-center justify-center text-[10px]">
+          {/* Step 2 Header */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-zinc-800/80">
+            <div className="flex items-center gap-2.5">
+              <span className="w-5 h-5 rounded-full bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900 flex items-center justify-center text-[10px] font-bold">
                 2
               </span>
-              <span>选择评测赛道与执行模式</span>
-            </h3>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900 dark:text-zinc-100 tracking-tight">
+                  评测任务与沙箱工作台
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+                  选择赛道与具体任务，指令与沙箱环境即时联动
+                </p>
+              </div>
+            </div>
 
             {/* Scope Mode Switcher: Single vs Batch */}
-            <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-900 rounded-xl border border-slate-200/80 dark:border-zinc-800 text-xs">
+            <div className="flex items-center gap-1 p-1 bg-slate-100 dark:bg-zinc-900 rounded-xl border border-slate-200/80 dark:border-zinc-800 text-xs">
               <button
                 onClick={() => {
                   setTaskExecMode('single');
@@ -526,9 +544,9 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                     setSelectedTaskIds([currentOrFirst.id]);
                   }
                 }}
-                className={`px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
                   taskExecMode === 'single'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm font-bold'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm font-semibold'
                     : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -540,9 +558,9 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                   setTaskExecMode('batch');
                   setSelectedTaskIds(channelTasks.map((t) => t.id));
                 }}
-                className={`px-3 py-1 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
                   taskExecMode === 'batch'
-                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm font-bold'
+                    ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-sm font-semibold'
                     : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white'
                 }`}
               >
@@ -552,77 +570,75 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
             </div>
           </div>
 
-          {/* Channel Selector Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {/* Channel Selector - Sleek Horizontal Tabs (No harsh glaring card) */}
+          <div className="flex items-center gap-1.5 p-1 bg-slate-100 dark:bg-zinc-900/90 rounded-xl border border-slate-200/80 dark:border-zinc-800 overflow-x-auto">
             {BENCHMARK_CHANNELS.map((ch) => {
               const isChActive = ch.id === selectedChannel;
               return (
                 <button
                   key={ch.id}
                   onClick={() => handleChannelSelect(ch.id as TaskChannel)}
-                  className={`p-2.5 rounded-xl text-left border transition-all text-xs ${
+                  className={`px-3.5 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
                     isChActive
-                      ? 'bg-zinc-900 dark:bg-white text-white dark:text-zinc-900 border-zinc-900 dark:border-white shadow-sm font-semibold'
-                      : 'bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-zinc-300 border-slate-200/80 dark:border-zinc-800 hover:border-slate-300'
+                      ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-zinc-100 shadow-sm font-semibold border border-slate-200/70 dark:border-zinc-700'
+                      : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200 hover:bg-white/50 dark:hover:bg-zinc-800/50'
                   }`}
                 >
-                  <div className="font-bold">{ch.label}</div>
-                  <div
-                    className={`text-[10px] mt-0.5 ${
-                      isChActive ? 'text-zinc-300 dark:text-zinc-600' : 'text-slate-400'
+                  <span>{ch.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
+                      isChActive
+                        ? 'bg-slate-100 dark:bg-zinc-700 text-slate-700 dark:text-zinc-300'
+                        : 'text-slate-400 dark:text-zinc-500'
                     }`}
                   >
-                    共 {ch.count} 题
-                  </div>
+                    {ch.count}
+                  </span>
                 </button>
               );
             })}
           </div>
 
-          {/* Paradigm & Difficulty Filter Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs">
+          {/* Quick Filters Toolbar (Type & Difficulty) */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 px-1 text-xs">
             {/* Paradigm Filter */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-slate-500 dark:text-zinc-400 text-[11px] font-medium flex items-center gap-1 mr-1">
-                <Layers className="w-3.5 h-3.5" /> 赛道:
-              </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-slate-400 dark:text-zinc-500 text-[11px] mr-0.5">类型:</span>
               <button
                 onClick={() => setParadigmFilter('all')}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   paradigmFilter === 'all'
-                    ? 'bg-slate-900 dark:bg-white text-white dark:text-zinc-900 font-semibold'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold'
+                    : 'bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
-                全部赛道
+                全部 ({tasks.filter((t) => t.channel === selectedChannel).length})
               </button>
               <button
                 onClick={() => setParadigmFilter('open-ended-project')}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   paradigmFilter === 'open-ended-project'
-                    ? 'bg-indigo-600 text-white font-semibold'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold'
+                    : 'bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
-                🚀 项目构建主力轨 (提需求·写Spec·全栈)
+                🛠️ 项目构建
               </button>
               <button
                 onClick={() => setParadigmFilter('deterministic-bugfix')}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all ${
                   paradigmFilter === 'deterministic-bugfix'
-                    ? 'bg-indigo-600 text-white font-semibold'
-                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-200'
+                    ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-semibold'
+                    : 'bg-slate-100 dark:bg-zinc-800/80 text-slate-600 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
                 }`}
               >
-                🐛 确定性工程 Bug 修复轨 (开源单测)
+                🐛 Bug 修复
               </button>
             </div>
 
             {/* Difficulty Filter */}
-            <div className="flex flex-wrap items-center gap-1">
-              <span className="text-slate-500 dark:text-zinc-400 text-[11px] font-medium mr-1">
-                难度:
-              </span>
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-slate-400 dark:text-zinc-500 text-[11px] mr-0.5">难度:</span>
               {(['all', 'Easy', 'Medium', 'Hard', 'Nightmare'] as const).map((diff) => (
                 <button
                   key={diff}
@@ -630,7 +646,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                   className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all ${
                     difficultyFilter === diff
                       ? 'bg-zinc-800 dark:bg-zinc-200 text-white dark:text-zinc-900 font-bold'
-                      : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200'
+                      : 'bg-slate-100 dark:bg-zinc-800/60 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'
                   }`}
                 >
                   {diff === 'all' ? '全部' : diff}
@@ -639,250 +655,312 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
             </div>
           </div>
 
-          {/* Batch Mode Header bar if batch */}
-          {taskExecMode === 'batch' && (
-            <div className="flex items-center justify-between text-xs pt-1">
-              <span className="text-slate-500 dark:text-zinc-400 font-medium">
-                批量队列已选中 {selectedTaskIds.length} / {channelTasks.length} 题
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedTaskIds(channelTasks.map((t) => t.id))}
-                  className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline"
-                >
-                  全选当前题
-                </button>
-                <span className="text-slate-300 dark:text-zinc-700">|</span>
-                <button
-                  onClick={() => setSelectedTaskIds(channelTasks.length > 0 ? [channelTasks[0].id] : [])}
-                  className="text-[11px] text-slate-400 hover:text-slate-600"
-                >
-                  仅留单题
-                </button>
+          {/* Master-Detail Split Workspace Layout */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 pt-1">
+            {/* Left Column: Clean Task List */}
+            <div className="lg:col-span-6 space-y-2">
+              {/* Batch Mode Toolbar if in batch */}
+              {taskExecMode === 'batch' && (
+                <div className="flex items-center justify-between text-xs px-1 pb-1">
+                  <span className="text-slate-500 dark:text-zinc-400 font-medium">
+                    已勾选 {selectedTaskIds.length} / {channelTasks.length} 题
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setSelectedTaskIds(channelTasks.map((t) => t.id))}
+                      className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                    >
+                      全选当前列表
+                    </button>
+                    <span className="text-slate-300 dark:text-zinc-700">|</span>
+                    <button
+                      onClick={() =>
+                        setSelectedTaskIds(channelTasks.length > 0 ? [channelTasks[0].id] : [])
+                      }
+                      className="text-[11px] text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300"
+                    >
+                      仅留单题
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Task List container with clean scroll */}
+              <div className="space-y-1.5 max-h-[540px] overflow-y-auto pr-1">
+                {channelTasks.length === 0 ? (
+                  <div className="py-12 text-center text-xs text-slate-400 dark:text-zinc-500">
+                    当前筛选条件下无测试题，请调整上方类型或难度过滤
+                  </div>
+                ) : (
+                  channelTasks.map((t) => {
+                    const isSelected =
+                      taskExecMode === 'single'
+                        ? focusedTaskId === t.id
+                        : selectedTaskIds.includes(t.id);
+                    const { title, subtitle } = cleanTaskTitle(t.title);
+
+                    return (
+                      <div
+                        key={t.id}
+                        onClick={() => {
+                          if (taskExecMode === 'single') {
+                            handleSelectFocusedTask(t.id);
+                          } else {
+                            toggleTaskSelection(t.id);
+                          }
+                        }}
+                        className={`p-3 rounded-xl border cursor-pointer transition-all duration-150 flex items-start gap-3 ${
+                          isSelected
+                            ? 'bg-indigo-50/50 dark:bg-indigo-950/30 border-indigo-500/70 dark:border-indigo-500/60 ring-1 ring-indigo-500/30 text-slate-900 dark:text-white shadow-sm'
+                            : 'bg-slate-50/70 dark:bg-zinc-900/60 border-slate-200/80 dark:border-zinc-800/90 text-slate-600 dark:text-zinc-400 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-slate-100/60 dark:hover:bg-zinc-800/50'
+                        }`}
+                      >
+                        {/* Radio or Checkbox */}
+                        <div className="pt-0.5 shrink-0">
+                          {taskExecMode === 'single' ? (
+                            <div
+                              className={`w-4 h-4 rounded-full border flex items-center justify-center transition-colors ${
+                                isSelected
+                                  ? 'border-indigo-600 bg-indigo-600 text-white'
+                                  : 'border-slate-300 dark:border-zinc-600'
+                              }`}
+                            >
+                              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                            </div>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => {}}
+                              className="rounded text-indigo-600 shrink-0 cursor-pointer mt-0.5"
+                            />
+                          )}
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`text-xs font-semibold truncate ${
+                                isSelected
+                                  ? 'text-slate-900 dark:text-white'
+                                  : 'text-slate-800 dark:text-zinc-200'
+                              }`}
+                            >
+                              {title}
+                            </span>
+
+                            {/* Minimal Difficulty & Paradigm indicators */}
+                            <div className="flex items-center gap-1.5 shrink-0 text-[10px]">
+                              <span
+                                className={`px-1.5 py-0.2 rounded font-medium ${
+                                  t.taskParadigm === 'deterministic-bugfix'
+                                    ? 'bg-slate-200/70 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
+                                    : 'bg-indigo-100/70 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300'
+                                }`}
+                              >
+                                {t.taskParadigm === 'deterministic-bugfix' ? 'Bug' : '项目'}
+                              </span>
+
+                              <span
+                                className={`font-mono font-medium ${
+                                  t.difficulty === 'Nightmare'
+                                    ? 'text-rose-600 dark:text-rose-400'
+                                    : t.difficulty === 'Hard'
+                                    ? 'text-amber-600 dark:text-amber-400'
+                                    : t.difficulty === 'Medium'
+                                    ? 'text-sky-600 dark:text-sky-400'
+                                    : 'text-emerald-600 dark:text-emerald-400'
+                                }`}
+                              >
+                                • {t.difficulty}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Subtitle / Tech summary */}
+                          {subtitle && (
+                            <p className="text-[11px] text-slate-400 dark:text-zinc-500 truncate mt-0.5">
+                              {subtitle}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
               </div>
             </div>
-          )}
 
-          {/* Task Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-            {channelTasks.length === 0 ? (
-              <div className="col-span-2 py-6 text-center text-xs text-slate-400">
-                当前筛选条件下无测试题，请切换范式或难度筛选
-              </div>
-            ) : (
-              channelTasks.map((t) => {
-                const isSelected =
-                  taskExecMode === 'single'
-                    ? focusedTaskId === t.id
-                    : selectedTaskIds.includes(t.id);
-
-                return (
-                  <div
-                    key={t.id}
-                    onClick={() => {
-                      if (taskExecMode === 'single') {
-                        handleSelectFocusedTask(t.id);
-                      } else {
-                        toggleTaskSelection(t.id);
-                      }
-                    }}
-                    className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between text-xs ${
-                      isSelected
-                        ? 'bg-slate-50 dark:bg-zinc-900 border-zinc-900 dark:border-white ring-1 ring-zinc-900 dark:ring-white text-slate-900 dark:text-white shadow-sm'
-                        : 'bg-white dark:bg-[#121215] border-slate-200/70 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-slate-300'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
-                      {taskExecMode === 'single' ? (
-                        <div
-                          className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
-                            isSelected
-                              ? 'border-indigo-600 bg-indigo-600 text-white'
-                              : 'border-slate-300 dark:border-zinc-700'
-                          }`}
-                        >
-                          {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
-                        </div>
-                      ) : (
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => {}}
-                          className="rounded text-zinc-900 dark:text-white shrink-0"
-                        />
-                      )}
-                      <span className="font-medium truncate">{t.title}</span>
+            {/* Right Column: Focused Task Inspector & Workbench (Sticky on desktop) */}
+            <div className="lg:col-span-6">
+              {taskExecMode === 'single' && focusedTask ? (
+                <div className="sticky top-20 p-4 rounded-2xl bg-slate-50/80 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 space-y-3.5 shadow-sm">
+                  {/* Header */}
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-200/70 dark:border-zinc-800 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">
+                          {cleanTaskTitle(focusedTask.title).title}
+                        </h4>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 line-clamp-2">
+                        {focusedTask.description}
+                      </p>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <span
-                        className={`text-[10px] px-1.5 py-0.2 rounded font-mono ${
-                          t.taskParadigm === 'deterministic-bugfix'
-                            ? 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400'
-                            : 'bg-purple-50 dark:bg-purple-950/50 text-purple-700 dark:text-purple-300'
-                        }`}
-                      >
-                        {t.taskParadigm === 'deterministic-bugfix' ? '客观单测' : '项目构建'}
-                      </span>
-
-                      {t.fullstackScope === 'fullstack-node' && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300">
-                          全栈Node
-                        </span>
-                      )}
-
-                      {t.projectSpec && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded font-mono bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300">
-                          Spec
-                        </span>
-                      )}
-
-                      {t.multiTurnStages && t.multiTurnStages.length > 0 && (
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-sky-50 dark:bg-sky-950/60 text-sky-700 dark:text-sky-300 font-mono">
-                          {t.multiTurnStages.length}阶段
-                        </span>
-                      )}
-
-                      <span
-                        className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
-                          t.difficulty === 'Nightmare'
-                            ? 'bg-rose-100 dark:bg-rose-950/60 text-rose-700 dark:text-rose-400'
-                            : t.difficulty === 'Hard'
-                            ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400'
-                            : t.difficulty === 'Medium'
-                            ? 'bg-sky-100 dark:bg-sky-950/60 text-sky-700 dark:text-sky-400'
-                            : 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400'
-                        }`}
-                      >
-                        {t.difficulty}
+                      <span className="text-[10px] px-2 py-0.5 rounded font-mono bg-slate-200 dark:bg-zinc-800 text-slate-600 dark:text-zinc-400">
+                        {focusedTask.difficulty}
                       </span>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
 
-          {/* Focused Single Task Deep Inspector Card */}
-          {taskExecMode === 'single' && focusedTask && (
-            <div className="p-4 rounded-2xl bg-slate-50/70 dark:bg-zinc-900/60 border border-slate-200 dark:border-zinc-800 space-y-3 mt-3 animate-slide-up">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/80 dark:border-zinc-800 pb-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="font-bold text-xs text-slate-900 dark:text-white">
-                    当前聚焦执行任务: {focusedTask.title}
-                  </span>
-                  <span
-                    className={`text-[10px] px-2 py-0.5 rounded font-mono ${
-                      focusedTask.taskParadigm === 'deterministic-bugfix'
-                        ? 'bg-slate-200 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300'
-                        : 'bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300'
-                    }`}
-                  >
-                    {focusedTask.taskParadigm === 'deterministic-bugfix'
-                      ? '🐛 确定性 Bug 修复'
-                      : '🚀 项目构建主力轨'}
-                  </span>
-                </div>
+                  {/* Prompt Section */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5 text-[11px]">
+                        <FileCheck2 className="w-3.5 h-3.5 text-indigo-500" />
+                        真实需求指令 Prompt 预览 ({focusedTask.inputPrompt.length} 字)
+                      </span>
+                      <button
+                        onClick={() => handleCopy('focused-prompt', focusedTask.inputPrompt)}
+                        className="text-[11px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 font-medium"
+                      >
+                        {copiedKey === 'focused-prompt' ? (
+                          <Check className="w-3 h-3 text-emerald-500" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                        <span>{copiedKey === 'focused-prompt' ? '已复制' : '复制提示词'}</span>
+                      </button>
+                    </div>
+                    <div className="p-3 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 text-[11px] text-slate-700 dark:text-zinc-300 leading-relaxed max-h-28 overflow-y-auto font-sans">
+                      {focusedTask.inputPrompt}
+                    </div>
+                  </div>
 
-                <span className="text-[11px] text-slate-400 font-mono">
-                  ID: {focusedTask.id} · 难度: {focusedTask.difficulty}
-                </span>
-              </div>
+                  {/* Sandbox & Command Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {/* Sandbox Path */}
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                          <FolderTree className="w-3 h-3 text-indigo-500" />
+                          物理隔离沙箱
+                        </span>
+                        <button
+                          onClick={() =>
+                            handleCopy('focused-ws', `~/.codex/sandboxes/eval-${focusedTask.id}`)
+                          }
+                          className="text-[10px] text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5"
+                        >
+                          {copiedKey === 'focused-ws' ? (
+                            <Check className="w-2.5 h-2.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-2.5 h-2.5" />
+                          )}
+                          <span>{copiedKey === 'focused-ws' ? '已复制' : '复制'}</span>
+                        </button>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-700 dark:text-zinc-300 truncate select-all">
+                        ~/.codex/sandboxes/eval-{focusedTask.id}
+                      </div>
+                    </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Sandbox Path */}
-                <div className="p-3 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                      <FolderTree className="w-3.5 h-3.5 text-indigo-500" />
-                      物理隔离沙箱工作区
-                    </span>
+                    {/* Test Assertion Command */}
+                    <div className="p-2.5 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                          <Terminal className="w-3 h-3 text-emerald-500" />
+                          客观验证命令 (Exit Code 0)
+                        </span>
+                        <button
+                          onClick={() =>
+                            handleCopy('focused-cmd', focusedTask.verificationCmd)
+                          }
+                          className="text-[10px] text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                        >
+                          {copiedKey === 'focused-cmd' ? (
+                            <Check className="w-2.5 h-2.5 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-2.5 h-2.5" />
+                          )}
+                          <span>{copiedKey === 'focused-cmd' ? '已复制' : '复制'}</span>
+                        </button>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-700 dark:text-zinc-300 truncate select-all">
+                        {focusedTask.verificationCmd}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Project Spec Highlights if project */}
+                  {focusedTask.projectSpec && (
+                    <div className="p-2.5 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 text-[11px] space-y-1">
+                      <div className="font-semibold text-indigo-900 dark:text-indigo-300 flex items-center gap-1.5 text-[10px]">
+                        <FileSpreadsheet className="w-3 h-3 text-indigo-600 dark:text-indigo-400" />
+                        <span>Spec 核心验收门禁:</span>
+                      </div>
+                      <div className="space-y-0.5 pl-3 text-slate-600 dark:text-zinc-400 text-[10px]">
+                        {focusedTask.projectSpec.acceptanceCriteria.slice(0, 2).map((ac, i) => (
+                          <div key={i} className="flex items-center gap-1.5">
+                            <span className="text-emerald-500 font-bold">✓</span>
+                            <span className="truncate">{ac}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Workflow Note */}
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-500 pt-1 border-t border-slate-200/60 dark:border-zinc-800/80">
+                    <span>⚡ 全自动流转：沙箱运行 ➔ 自动拉取 Diff 评分 ➔ 人工 5 维复审</span>
                     <button
-                      onClick={() =>
-                        handleCopy('focused-ws', `~/.codex/sandboxes/eval-${focusedTask.id}`)
-                      }
-                      className="btn-ghost !text-[10px] !py-0.5 flex items-center gap-1 text-indigo-600 dark:text-indigo-400"
+                      onClick={() => setIsCodexLauncherOpen(true)}
+                      className="text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-0.5 font-medium"
                     >
-                      {copiedKey === 'focused-ws' ? (
-                        <Check className="w-3 h-3 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                      <span>{copiedKey === 'focused-ws' ? '已复制' : '复制目录'}</span>
+                      <span>编排向导 →</span>
                     </button>
                   </div>
-                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-900 text-[11px] font-mono text-slate-800 dark:text-zinc-200 border border-slate-200/60 dark:border-zinc-800 truncate select-all">
-                    ~/.codex/sandboxes/eval-{focusedTask.id}
-                  </div>
                 </div>
-
-                {/* Verification Command */}
-                <div className="p-3 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                      <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-                      客观断言命令 (Exit Code 0)
+              ) : (
+                /* Batch Mode Summary Box */
+                <div className="sticky top-20 p-5 rounded-2xl bg-slate-50/80 dark:bg-zinc-900/80 border border-slate-200 dark:border-zinc-800 space-y-4 text-xs">
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 dark:text-white block">
+                      📑 批量队列执行模式
                     </span>
-                    <button
-                      onClick={() => handleCopy('focused-cmd', focusedTask.verificationCmd)}
-                      className="btn-ghost !text-[10px] !py-0.5 flex items-center gap-1 text-emerald-600 dark:text-emerald-400"
-                    >
-                      {copiedKey === 'focused-cmd' ? (
-                        <Check className="w-3 h-3 text-emerald-500" />
-                      ) : (
-                        <Copy className="w-3 h-3" />
-                      )}
-                      <span>{copiedKey === 'focused-cmd' ? '已复制' : '复制命令'}</span>
-                    </button>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
+                      系统将按序在独立沙箱中依次执行当前已勾选的 {selectedTaskIds.length} 道测试题，跑完后统一输出天梯总分与排行榜。
+                    </p>
                   </div>
-                  <div className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-900 text-[11px] font-mono text-slate-800 dark:text-zinc-200 border border-slate-200/60 dark:border-zinc-800 truncate select-all">
-                    {focusedTask.verificationCmd}
+
+                  <div className="p-3 rounded-xl bg-white dark:bg-[#0c0c0e] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">队列题目数量:</span>
+                      <span className="font-bold text-slate-900 dark:text-white font-mono">
+                        {selectedTaskIds.length} 题
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">预计执行耗时:</span>
+                      <span className="font-mono text-slate-700 dark:text-zinc-300">
+                        约 {(selectedTaskIds.length * 0.5).toFixed(1)} 分钟
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="text-slate-500">沙箱隔离策略:</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                        每个任务独立临时沙箱
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Task Prompt Box */}
-              <div className="p-3 rounded-xl bg-white dark:bg-[#121215] border border-slate-200/80 dark:border-zinc-800 space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-slate-700 dark:text-zinc-300 flex items-center gap-1.5">
-                    <FileCheck2 className="w-3.5 h-3.5 text-purple-500" />
-                    真实需求指令 Prompt 预览 ({focusedTask.inputPrompt.length} 字)
-                  </span>
-                  <button
-                    onClick={() => handleCopy('focused-prompt', focusedTask.inputPrompt)}
-                    className="btn-ghost !text-[10px] !py-0.5 flex items-center gap-1 text-purple-600 dark:text-purple-400 font-semibold"
-                  >
-                    {copiedKey === 'focused-prompt' ? (
-                      <Check className="w-3 h-3 text-emerald-500" />
-                    ) : (
-                      <Copy className="w-3 h-3" />
-                    )}
-                    <span>{copiedKey === 'focused-prompt' ? '已复制提示词' : '一键复制提示词'}</span>
-                  </button>
-                </div>
-                <pre className="p-2.5 rounded-lg bg-slate-950 font-mono text-[11px] text-zinc-300 leading-relaxed whitespace-pre-wrap max-h-32 overflow-y-auto border border-zinc-800">
-                  {focusedTask.inputPrompt}
-                </pre>
-              </div>
-
-              {/* 3-Step Review Workflow Pill */}
-              <div className="p-2.5 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/40 border border-indigo-200/60 dark:border-indigo-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-slate-600 dark:text-zinc-400">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-indigo-500 shrink-0" />
-                  <span>
-                    <strong>全自动三步流水线：</strong>沙箱 Exit Code 0 ➔ Review Agent 自动拉取 Diff 与日志打分（免人肉二次复制）➔ 人工可用性质感微调
-                  </span>
-                </div>
-                <button
-                  onClick={() => setIsCodexLauncherOpen(true)}
-                  className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
-                >
-                  查看沙箱编排详情 →
-                </button>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Step 3: Run Benchmark Button & Error Injection Playground */}
@@ -895,7 +973,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
             </div>
             <div className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">
               {taskExecMode === 'single'
-                ? `🎯 单题精细执行: 仅针对【${focusedTask?.title || '选定任务'}】进行沙箱测试、Diff 提取与三层审查`
+                ? `🎯 单题精细执行: 仅针对【${focusedTask?.title ? cleanTaskTitle(focusedTask.title).title : '选定任务'}】进行沙箱测试、Diff 提取与三层审查`
                 : `📑 批量队列自动跑: 将按序在独立沙箱中执行选中的 ${selectedTaskIds.length} 道测试题并汇总战报`}
             </div>
           </div>
@@ -1036,8 +1114,13 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                           }`}
                         />
                         <span className="font-bold text-xs text-slate-900 dark:text-white">
-                          {r.taskTitle}
+                          {cleanTaskTitle(r.taskTitle).title}
                         </span>
+                        {cleanTaskTitle(r.taskTitle).subtitle && (
+                          <span className="text-[11px] text-slate-400 dark:text-zinc-500 font-normal truncate max-w-xs">
+                            ({cleanTaskTitle(r.taskTitle).subtitle})
+                          </span>
+                        )}
                         {isProj ? (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold">
                             🚀 项目主力轨
@@ -1615,7 +1698,7 @@ export const BenchmarkRunnerView: React.FC<BenchmarkRunnerViewProps> = ({
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-200/50 dark:border-zinc-800/60 pb-2.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-xs text-slate-900 dark:text-white">
-                          {matchedTask?.title || trialA?.taskTitle || tid}
+                          {cleanTaskTitle(matchedTask?.title || trialA?.taskTitle || tid).title}
                         </span>
                         {isProj ? (
                           <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 font-bold">
