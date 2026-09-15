@@ -62,8 +62,11 @@ $$\text{Codex IQ} = \text{客观自动化得分} \times 50\% + \text{人工工�
 
 ## 后端接口规范 (面向 Codex 扩展)
 
-当前前端已具备完整的 UI 状态机、模拟采样与本地持久化。后续若需在 Codex 中实现全自动调度，可补充以下 5 个基础接口：
+当前前端已具备完整的 UI 状态机、模拟采样与本地持久化。关于数据库表结构 (SQLite DDL)、完整 RESTful API 请求响应契约、CLI 驱动代码与沙箱调度的全量技术规范，请直接参考权威文档：
 
+👉 **[完整系统架构与后端实现技术规范 (ARCHITECTURE.md)](./ARCHITECTURE.md)**
+
+核心需补充的 5 个基础接口：
 1. `POST /api/benchmark/spawn`：在本地指定目录创建隔离沙箱，并按需注入指定的 `AGENTS.md` 与配置文件。
 2. `POST /api/benchmark/exec`：调用本地 `codex exec` 执行任务指令，流式收集日志、退出码与执行耗时。
 3. `GET /api/benchmark/diff-facts`：提取 Git 增删行数、改动文件清单，运行编译器与类型检查。
